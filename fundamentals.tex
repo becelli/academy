@@ -1,3 +1,86 @@
-\section{Fundamentação}
+% Apresenta a fundamentação teórica dos conceitos usados no trabalho. Pode haver mais de 
+% uma seção tratando da fundamentação, se houver a necessidade de se tratar outros assuntos, 
+% exemplo: trabalhos relacionados, ferramentas, bibliotecas, hardware e outros.
 
-aaa
+\section{Fundamentação teórica}
+
+A gama de aplicações processo de inpainting em imagens digitais é ampla, uma vez que não se limita a um único domínio. A técnica pode ser aplicada em diversas áreas, tais como a medicina, engenharia, arquitetura, entre outras, as quais serão mais exploradas mais a fundo no tópico \ref{applications}.
+Além disso, o conceito de inpainting, inicialmente apresentado em \ref{introduction}, não agrega apenas as ideias de restauração de imagens ou remoção de objetos, mas também a construção e reconstrução de imagens \cite{you2019pirec}, a preservação da privacidade (por exemplo, borramento de rostos e placas de veículos automotivos) em imagens públicas \cite{google2022magritte}, ao preenchimento de lacunas em imagens de satélites \cite{Maalouf2009bandelet}, entre outros possíveis usos, aos quais alguns serão mais explorados no prosseguir desta revisão. Por fim, o tópico \ref{related} apresenta os trabalhos relacionados ao tema. 
+
+\subsection{Conceito} \label{theory} 
+Neste trabalho, o escopo de inpainting de imagens pode ser compreendido como uma técnica utilizada para preencher regiões vacantes ou danificadas em uma imagem digital. O objetivo do inpainting é reconstruir as regiões afetadas de forma que o resultado final seja o mais visualmente plausível possível, ou seja, que a imagem resultante seja natural à ótica humana e não apresente artefatos visuais, enquanto preserva a coerência e consistência da imagem original. Há diversas formas de se implementar o processo de inpainting, sendo que a escolha do método a ser utilizado depende do domínio de aplicação, das características da imagem, do tipo de máscara, entre outros fatores. Contudo, é comum distinguir duas variedades de métodos que são amplamente utilizados: os métodos baseados em \emph{patches}, os quais utilizam informações da estrutura da imagem para preencher lacunas, e os métodos baseados em aprendizado, os quais comumente utilizam grandes quantidades de dados para serem treinados, sendo que os métodos baseados em aprendizado são os mais recentes e geralmente apresentam resultados mais satisfatórios.
+
+
+\subsubsection{Métodos baseados em patches} \label{patch}
+Os métodos baseados em patches utilizam informações dos pixels e da região vizinha das regiões que estão vacantes ou danificadas para preencher as lacunas. Estes métodos são baseados no princípio de que a patches próximos e similares ao alvo são os mais adequados para preencher a região. É possível ainda, dentro desta estratégia, distinguir dois tipos de métodos: os métodos baseados em amostras, tais que utilizam amostras próximas da região-alvo para preencher a lacuna, e os métodos baseados em síntese de textura que utilizam a textura das regiões conhecidas para preencher a lacuna.
+
+\begin{list}{}{}
+\item \textbf{Métodos baseados em amostras:} \label{sample}
+estes métodos utilizam amostras das regiões conhecidas para reconstruir a região danificada. Assume-se que a região corrompida possui pixels semelhantes a dos seus vizinhos. Essa estratégia é simples e eficiente computacionalmente, em especial para imagens com texturas e estruturas mais simples. Contudo, não é produz resultados satisfatórios para lidar com imagens mais compostas, como imagens com texturas complexas, imagens com bordas irregulares, imagens com objetos com texturas semelhantes, etc.
+\item \textbf{Métodos baseados em síntese de textura:} \label{texture}
+estes métodos, por sua vez, métodos baseados em texturas utilizam as informações das texturas das regiões conhecidas para sintetizar novos pixels para a região vacante. Esta estratégia assume que a área vizinha ao alvo possui texturas semelhantes, o que viabiliza propagar as bordas e frequências para preenchimento. Estes métodos podem produzir resultados satisfatórios para imagens com texturas complexas, embora encontrem dificuldades para lidar com imagens com bordas ou padrões irregulares, imagens com objetos com texturas semelhantes, entre outras.
+\end{list}
+
+Estas técnicas também são conhecidas como "clássicas", pois elas foram as primeiras a serem desenvolvidas. Elas produzem resultados satisfatórios para imagens com texturas e estruturas simples, mas não são eficazes para imagens mais complexas.
+
+\subsubsection{Métodos baseados em aprendizado} \label{learn}
+Os métodos baseados em aprendizado, por sua vez, utilizam técnicas de aprendizado de máquina, como redes neurais convolucionais (CNNs) e redes generativas adversárias (GANs) para preencher a região danificada. Estas técnicas "aprendem" a reconstruir a região danificada a partir de um conjunto de dados de imagens com e sem máscara. Estes métodos são mais recentes e apresentam resultados mais satisfatórios, em especial para imagens com texturas complexas, imagens com bordas irregulares, imagens com objetos com texturas semelhantes, etc. Contudo, estes métodos são mais complexos e computacionalmente mais custosos.
+
+\begin{list}{}{}
+\item \textbf{Redes neurais convolucionais:} \label{cnn}
+utilizam uma CNN para reconstruir as regiões faltantes. Estes métodos se beneficiam da habilidade das CNNs de aprender as características de uma imagem e conseguem produzir bons resultados para imagens com texturas e estrutura complexas. A rede é treinada em um vasto conjunto de dados de imagens e aprende a reconhecer padrões e as características das imagens. Após o treinamento, a rede utiliza o conhecimento adquirido para gerar novos pixels para a região danificada, ainda preservando a região que a cerca.
+\item \textbf{Redes generativas adversárias:} \label{gan}
+
+\end{list}
+
+
+Os métodos baseados em aprendizado de máquina costumam lidar consistentemente com imagens contendo texturas e estruturas complexas, e apresentam resultados mais coerentes e realistas, embora estes métodos serem mais complexos e computacionalmente mais custosos.
+
+
+
+
+
+
+* Otimizações
+
+*** Qualidade
+
+- Estrutura da imagem (textura, bordas, etc)
+- Patch-based inpainting (usar patches de imagens sem máscara para preencher a máscara)
+- Edge-preserving inpainting (preservar bordas)
+
+- Priorizar o inpainting de regiões de maior importância, normalmente localizadas em áreas de alta frequência
+- Usar redes neurais pode ser uma alternativa para otimizar o processo de inpainting
+- Inpainting guiado (o usuário insere a máscara)
+- Context-aware inpainting (usar informações de contexto para melhorar a qualidade do resultado)
+- Representação esparsa (pesquisar)
+- GANs
+- CNNs
+- Deep learning
+- Total Variation (vi no Fountoura)
+- non local (vi duas vezes)
+
+
+
+***Computacional
+- Profiling (análise de desempenho)
+- FPGAs
+- Crop
+- Paralelismo
+- Estruturas de dados
+- Otimização de acesso a memória
+
+- Aceleração de hardware (GPU)
+- Instruções de vetorização (SIMD)
+- Vectorizing loops
+- Aproximações de funções
+- Cálculo incremental
+- Linguagens compiladas
+
+
+
+
+
+\subsection{Aplicações} \label{applications}
+
+\subsection{Trabalhos relacionados} \label{related}
