@@ -1,9 +1,12 @@
 \documentclass[12pt,fleqn,a4paper,nodisplayskipstretch]{article}
-\usepackage[utf8]{inputenc}
 \usepackage[a4paper, left=30mm, right=20mm, top=30mm, bottom=20mm]{geometry}
+
+\usepackage{minitoc}
+\usepackage[utf8]{inputenc}
 \usepackage{ragged2e}
 \usepackage{mathptmx}
-
+\usepackage{graphicx}
+\graphicspath{ {./assets/images/} }
 \usepackage{fancyhdr}
 \usepackage{quoting}
 \usepackage{nomencl}
@@ -37,7 +40,7 @@
     %Renomeação do título da lista de figuras
     \renewcommand{\listfigurename}{\centering \normalsize \uppercase{Lista de figuras}}
     %Renomeação do título da lista de tabela
-    \renewcommand{\listtablename}{\centering \normalsize \uppercase{Lista de tabela}}
+    \renewcommand{\listtablename}{\centering \normalsize \uppercase{Lista de tabelas}}
 }
 
 \pagestyle{fancy}
@@ -56,6 +59,13 @@
 \input{title.tex}
 \pagebreak
 
+\thispagestyle{empty}
+\listoffigures{}
+\pagebreak
+\thispagestyle{empty}
+\listoftables{}
+\pagebreak
+
 \pagenumbering{arabic}
 \tableofcontents{}
 \pagebreak
@@ -67,6 +77,7 @@
 \input{fundamentals.tex}
 \input{related.tex}
 \input{conclusion.tex}
+\pagebreak
 \input{references.tex}
 
 \end{document}
