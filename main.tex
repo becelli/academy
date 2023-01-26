@@ -1,6 +1,6 @@
 \documentclass[12pt,fleqn,a4paper,nodisplayskipstretch]{article}
 \usepackage[a4paper, left=30mm, right=20mm, top=30mm, bottom=20mm]{geometry}
-
+\usepackage{tabularx}
 \usepackage{minitoc}
 \usepackage[utf8]{inputenc}
 \usepackage{ragged2e}
@@ -55,6 +55,7 @@
 }
 
 
+{\setstretch{1}
 \begin{document}
 \input{title.tex}
 \pagebreak
@@ -70,8 +71,8 @@
 \tableofcontents{}
 \pagebreak
 
-% \input{abstract.tex}
-% \pagebreak
+\input{abstract.tex}
+\pagebreak
 
 \input{introduction.tex}
 \input{fundamentals.tex}
@@ -81,5 +82,5 @@
 \input{references.tex}
 
 \end{document}
-
+}
 
