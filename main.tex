@@ -10,6 +10,8 @@
 \usepackage{fancyhdr}
 \usepackage{quoting}
 \usepackage{nomencl}
+% \usepackage{xltabular}
+\usepackage{longtable}
 \usepackage[brazil]{babel}
 
 
@@ -61,25 +63,26 @@
 \input{title.tex}
 \pagebreak
 
-\thispagestyle{empty}
+
 \listoffigures{}
 \pagebreak
-\thispagestyle{empty}
-\listoftables{}
-\pagebreak
 
-\thispagestyle{empty}
-\tableofcontents{}
+\listoftables{}
 \pagebreak
 
 \pagenumbering{arabic}
 \input{abstract.tex}
 \pagebreak
 
+\tableofcontents{}
+\pagebreak
+
+
 \input{introduction.tex}
 \input{fundamentals.tex}
 \input{related.tex}
 \input{conclusion.tex}
+
 \pagebreak
 \input{references.tex}
 

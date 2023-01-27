@@ -1,31 +1,50 @@
 \section{Trabalhos Relacionados} \label{related}
 
-A Tabela \ref{related-works} apresenta, de forma resumida, os principais trabalhos relacionados ao tema deste trabalho, apresentando os seus objetivos, métodos e resultados.
+A Tabela \ref{related-works} apresenta, de forma resumida, os principais trabalhos relacionados ao tema deste trabalho, apresentando uma breve descrição de cada um deles. Os trabalhos foram selecionados de acordo com a relevância para o tema, e a descrição apresentada foi baseada na leitura dos artigos originais.
 
-\begin{table}[h]
-\centering
-\caption{Trabalhos relacionados ao tema desta revisão.}
-\vspace{0.5cm}
-\label{related-works}
-\begin{tabularx}{\linewidth}{|p{4cm}|l|X|}
+
+\begin{longtable}{|p{4cm}|l|p{10cm}|}
+
+\caption{Trabalhos relacionados ao tema desta revisão.} \label{related-works} \\
 \hline
-\textbf{Referência} & \textbf{Ano} & \textbf{Descrição} \\
+\textbf{Referência} & \textbf{Ano} & \textbf{Descrição}  \\ 
 \hline
 Image Inpainting \cite{Bertalmio2000} & 2000 & Baseia-se no uso de amostras sem a necessidade de serem explicitamente selecionados pelo usuário. O algoritmo os seleciona automaticamente e completa as regiões utilizando síntese de textura. O algoritmo possui limitações ao ser utilizado em grandes regiões com texturas complexas, pois não consegue reproduzir a textura sem causar borramentos. \\
 
 \hline
 
-An Image Inpainting Technique Based on the Fast Marching Method \cite{Telea2004} & 2004 & Este trabalho visa obter resultados satisfatórios com um algortimo mais simples e rápido. O autor propõe preencher a região a ser recuperada ponderando a região vizinha, assim como apresentado por \cite{Bertalmio2000}. Em suma, o método poposto produz resultados satisfatórios para remoção de textos e arranhões e, segundo o autor, possui suas limitações quando a região a ser preenchida se torna maior que 10-15 pixels. \\
+An Image Inpainting Technique Based on the Fast Marching Method \cite{Telea2004} & 2004 & Este trabalho visa obter resultados satisfatórios com um algoritmo mais simples e rápido. O autor propõe preencher a região a ser recuperada ponderando a região vizinha, assim como apresentado por \cite{Bertalmio2000}. Em suma, o método poposto produz resultados satisfatórios para remoção de textos e arranhões e, segundo o autor, possui suas limitações quando a região a ser preenchida se torna maior que 10-15 pixels. \\
+
+\hline
+
+PatchMatch: A Randomized Correspondence Algorithm for Structural Image Editing \cite{patchmatch2009} & 2009 & O autor propõe uma técnica para a restauranção de imagens que utiliza a correspondência de amostras. O algoritmo assume que boas amostras podem ser encontradas com buscas aleatórias. O algoritmo consegue manipular a escala dos elementos, preservando a textura e a aparência da imagem. \\
+
+
+\hline
+
+Object Removal by Examplar-Based Inpainting \cite{criminisi2004region} & 2004 & Apresenta-se uma técnica para a remoção de grandes objetos de imagens fotográficas. O algoritmo remove objetos de fotografias e busca substituir por planos de fundo visualmente plausíveis, utilizando a estrutura da imagem e síntese de textura. \\
+
+\hline
+
+Aplicação de wavelets em inpainting digital \cite{ubirata2007aplicacao} & 2007 & O autor disserta sobre a aplicação do inpainting utilizando wavelets, técnica baseada na transformada wavelet 2D. O algoritmo consegue recuperar imagens em que a região a ser recuperada seja pequena. \\
+
+\hline
+
+Navier-Strokes, Fluid Dynamics, and Image and Video Inpainting \cite{Bertalmio2001navier} & 2001 & O autor propõe uma técnica para a recuperação de imagens utilizando a dinâmica de fluidos, baseando-se nas equações de Navier-Stokes. O algoritmo é estendido para a recuperação de vídeos. \\
+
+\hline
+
+Shepard Convolutional Neural Networks \cite{ren2015shepard} & 2015 & O autor propõe uma técnica para a recuperação de imagens utilizando redes neurais convolucionais (CNNs). O algoritmo é baseado na técnica de \cite{shepard1968two} para interpolação. O algoritmo é implementado em MATLAB e utiliza aceleração por GPU. \\
+
+
 
 \hline
 
 
 
-\hline
 
-\end{tabularx}
-\end{table}
 
+\end{longtable}
 
 
 

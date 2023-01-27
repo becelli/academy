@@ -25,17 +25,15 @@ Os métodos clássicos utilizam informações dos pixels e da região vizinha à
 
 É possível ainda, dentro desta estratégia, distinguir dois tipos de métodos: os métodos baseados em difusão, tais que propagam as informações próximas da região-alvo para preencher a lacuna, e os métodos baseados em patches e síntese de textura que utilizam amostras de regiões similares para preencher a lacuna.
 
-\begin{list}{}{}
-
-  \item \textbf{Métodos baseados em difusão:} \label{diffusion}
+\subsubsection{Métodos baseados em difusão} \label{diffusion}
 Segundo \cite{black2020evaluation}, estes métodos transmitem os valores dos pixels adjacentes para as regiões a serem preenchidas e suas implementações são variadas. Métodos como \cite{Telea2004} utilizam uma o Método da Marcha Rápida, que consiste em propagar médias ponderadas das intensidades dos pixels adjacentes para a região-alvo, mantendo as altas e baixas frequências. Há outras implementações como \cite{Bertalmio2001navier}, que utilizam as equações de Navier-Stokes para a difusão de valores de pixels adjacentes e os isótopos (linhas com tons de cinza semelhantes) existentes. Estes métodos são simples e eficientes computacionalmente, porém, apresentam geralmente resultados com artefatos visuais, como bordas irregulares, texturas deformadas, etc, em especial, para imagens com texturas complexas.
 
-  \item \textbf{Métodos baseados em patches:} \label{sample}
-estes métodos utilizam amostras de regiões conhecidas e similares a região-alvo para reconstruí-la. Assume-se que a região corrompida possui pixels semelhantes a alguma área próxima ou selecionada pelo usuário, então o método extrai esta amostra e a transfere para a região desejada, geralmente mantendo a coerência da imagem e a consistência visual. Essa estratégia é simples e eficiente computacionalmente, em especial para imagens com texturas e estruturas mais simples \cite{patchmatch2009}, simultaneamente, costumam apresentar resultados superiores aos de difusão. Em geral, não produzem resultados satisfatórios para lidar com imagens que contenham detalhes finos, imagens com bordas irregulares, imagens com objetos com texturas semelhantes, etc.
+\subsubsection{Métodos baseados em \emph{patches} (amostras)} \label{sample}
+Estes métodos utilizam amostras de regiões conhecidas e similares a região-alvo para reconstruí-la. Assume-se que a região corrompida possui pixels semelhantes a alguma área próxima ou selecionada pelo usuário, então o método extrai esta amostra e a transfere para a região desejada, geralmente mantendo a coerência da imagem e a consistência visual. Essa estratégia é simples e eficiente computacionalmente, em especial para imagens com texturas e estruturas mais simples \cite{patchmatch2009}, simultaneamente, costumam apresentar resultados superiores aos de difusão. Em geral, não produzem resultados satisfatórios para lidar com imagens que contenham detalhes finos, imagens com bordas irregulares, imagens com objetos com texturas semelhantes, etc.
 
-\item \textbf{Métodos baseados em síntese de textura:} \label{texture}
- estes métodos estão incluídos na categoria de métodos baseados em patches, pois também utilizam amostras de regiões conhecidas e similares a região-alvo para reconstruí-la. Contudo, estes métodos utilizam amostras de texturas para sintetizar novos pixels para a região-alvo. Estes métodos são baseados no princípio de que a textura de uma região é uma função de sua vizinhança, e assume que a área vizinha ao alvo possui texturas similares, o que viabiliza propagar as bordas e frequências para preenchimento. Utilizar esta estratégia pode produzir resultados satisfatórios para imagens com texturas mais complexas, embora ainda encontrem dificuldades para lidar com imagens com bordas ou padrões irregulares, imagens com objetos com texturas semelhantes, entre outras \cite{bertalmio2003texture}.
-\end{list}
+Dentro dos métodos baseados em patches, inclui-se os métodos baseados em síntese de texturas, os quais utilizam amostras de regiões conhecidas e similares a região-alvo para reconstruí-la. Contudo, estes métodos utilizam amostras de texturas para sintetizar novos pixels para a região-alvo. Estes métodos são baseados no princípio de que a textura de uma região é uma função de sua vizinhança, e assume que a área vizinha ao alvo possui texturas similares, o que viabiliza propagar as bordas e frequências para preenchimento. Utilizar esta estratégia pode produzir resultados satisfatórios para imagens com texturas mais complexas, embora ainda encontrem dificuldades para lidar com imagens com bordas ou padrões irregulares, imagens com objetos com texturas semelhantes, entre outras \cite{bertalmio2003texture}.
+
+\subsubsection{Exemplos}
 
 O trabalho de \cite{Bertalmio2000} apresenta uma técnica iterativa que não necessita de intervenção do usuário para selecionar a textura que deve ser utilizada para preencher a região danificada. O ótimo da técnica apresentada é preencher regiões próximas de fronteiras, onde há alta frequência. Apesar disso, o autor comenta que não se recomenda a utilização para grandes regiões de textura. O algoritmo utiliza a estrutura ao redor da região a ser restaurada para ir preenchendo seu contorno e reduzindo a área de referência, propagando a textura existente.
 
@@ -52,16 +50,18 @@ O trabalho de \cite{Bertalmio2000} apresenta uma técnica iterativa que não nec
 \subsection{Métodos baseados em aprendizado} \label{learn-based}
 Os métodos baseados em aprendizado, no que lhe concernem, utilizam técnicas de aprendizado de máquina, como redes neurais convolucionais (CNNs) e redes generativas adversárias (GANs) para preencher a região danificada. Estas técnicas "aprendem" a reconstruir a região danificada a partir de um conjunto de dados de imagens com e/ou sem máscara. Estes métodos são mais recentes e apresentam resultados mais satisfatórios, em especial para imagens com texturas complexas, imagens com bordas irregulares, imagens com objetos com texturas semelhantes, etc. Entretanto, eles geralmente são mais complexos e computacionalmente mais custosos, devido ao fato que de necessitarem de um grande conjunto de dados para serem treinados \cite{Goodfellow-et-al-2016}. Além disso, seu treinamento pode ser demorado, consoante o tamanho do conjunto de dados.
 
-Nesta categoria existem diversos métodos existentes, utilizando diferentes técnicas de aprendizado de máquina e abordagem para o preenchimento. Apesar disto, os métodos podem ser divididos, mas não limitando-os, em dois grandes grupos: métodos baseados em CNNs e métodos baseados em GANs.
+Nesta categoria existem diversos métodos existentes, utilizando diferentes técnicas de aprendizado de máquina e abordagem para o preenchimento. Apesar disto, os métodos podem ser divididos, mas não limitando-os, em dois grandes grupos: métodos baseados em CNNs e métodos baseados em GANs
 
-\begin{list}{}{}
-\item \textbf{Redes neurais convolucionais:} \label{cnn-based-learning}
-utilizam uma CNN para reconstruir as regiões faltantes. Estes métodos se beneficiam da habilidade das CNNs de aprender as características de uma imagem e conseguem produzir bons resultados para imagens com texturas e estrutura complexas. A rede é treinada em um vasto conjunto de dados de imagens e aprende a reconhecer padrões e as características das imagens. Após o treinamento, a rede utiliza o conhecimento adquirido para gerar novos pixels para a região danificada, ainda preservando a região que a cerca.
+\subsubsection{Métodos baseados em Redes Neurais Convolucionais} \label{cnn-based}
+Estas espécies de métodos utilizam uma CNN para reconstruir as regiões faltantes. Eles se beneficiam da habilidade das CNNs de aprender as características de uma imagem e conseguem produzir bons resultados para imagens com texturas e estrutura complexas. A rede é treinada em um vasto conjunto de dados de imagens e aprende a reconhecer padrões e as características das imagens. Após o treinamento, a rede utiliza o conhecimento adquirido para gerar novos pixels para a região danificada, ainda preservando a região que a cerca.
 
-\item \textbf{Redes generativas adversárias:} \label{gan-based-learning}
-utilizam uma GAN para gerar novos pixels para preencher a região danificada. As GANs consistem em duas partes: uma rede geradora que gera novos pixels, e um discriminador que avalia a qualidade dos pixels obtidos\cite{black2020evaluation}. Estes métodos podem gerar resultados mais realísticos do que os baseados em CNNs, ao custo de serem mais custosos computacionalmente e requererem um conjunto de dados maior para treinamento. Consequentemente, estes métodos costumam ser mais complexos e consumir mais tempo para treinamento \cite{pathakCVPR16context}.
 
-\end{list}
+
+\subsubsection{Métodos baseados em Redes Generativas Adversárias} \label{gan-based}
+Estes métodos utilizam uma GAN para gerar novos pixels para preencher a região danificada. As GANs consistem em duas partes: uma rede geradora que gera novos pixels, e um discriminador que avalia a qualidade dos pixels obtidos~\cite{black2020evaluation}. Estes métodos podem gerar resultados mais realísticos do que os baseados em CNNs, ao custo de serem mais custosos computacionalmente e requererem um conjunto de dados maior para treinamento. Consequentemente, estes métodos costumam ser mais complexos e consumir mais tempo para treinamento \cite{pathakCVPR16context}.
+
+
+\subsubsection{Exemplo}
 
 O artigo de \cite{ren2015shepard} apresenta um método baseado em CNNs para inpainting em que a rede é treinada utilizando imagens tanto com quanto sem máscaras, o que possibilita que ela aprenda a reconstruir as áreas faltantes. Por se basear em \cite{shepard1968two} a máscara de convolução utilizada neste método leva em conta a distância espacial entre o pixel conhecido, que será utilizado como exemplo para a reconstrução, e o pixel a ser reconstruído, permitindo que a contribuição de cada pixel seja ponderada de forma apropriada. A figura \ref{fig:inpainting-convolution-mask.png} mostra um exemplo da máscara de convolução.
 
@@ -75,9 +75,6 @@ O artigo de \cite{ren2015shepard} apresenta um método baseado em CNNs para inpa
 
 
 % TODO: Adicionar mais uma referência de GAN ou CNN para inpainting.
-
-
-
 
 
 \section{Conceitos e técnicas} \label{concepts}
@@ -121,11 +118,9 @@ Outra abordagem é utilizar técnicas de processamento de imagens, como a interp
 
 % TODO: Algo sobre ML?
 
-
-
 \section{Oportunidades de otimizações computacionais}
 
-Em geral, o processo de complementar regiões faltantes é computacionalmente custoso, porque realiza-se grandes quantidades de cálculos para preencher as regiões selecionadas. Em especial, quando se é necessário processar várias imagens, imagens de alta resolução ou, ao depender da aplicação, o processo de inpainting pode necessitar ser realizado em tempo real, o que torna o processo ainda mais complexo. Por este motivo, é importante considerar as otimizações computacionais que podem ser realizadas para melhorar o desempenho da tarefa de preenchimento de imagens.
+Em geral, o processo de complementar regiões faltantes é computacionalmente custoso, porque realiza-se grandes quantidades de cálculos para preencher as regiões selecionadas. Em especial, quando se é necessário processar várias imagens, imagens de alta resolução ou, ao depender da aplicação, o processo de inpainting pode necessitar ser realizado em tempo real, o que torna o tempo de processamento ainda mais importante. Por este motivo, é importante considerar as otimizações computacionais que podem ser realizadas para melhorar o desempenho da tarefa de preenchimento de imagens.
 
 A programação paralela (do inglês, \emph{parallel processing}) é uma técnica de programação que permite a execução de múltiplos processos em paralelo, utilizando duas ou mais unidades de processamento \cite{tanenbaum2014os}. Para tal, é necessário que o algoritmo de inpainting seja capaz de dividir o processo em partes menores, que podem ser executadas em paralelo. Além disso, é necessário que o algoritmo seja capaz de combinar os resultados obtidos por cada parte do processo, para que o resultado final seja o mesmo que o obtido sem a utilização da programação paralela.
 Normalmente, a programação paralela é utilizada para melhorar o desempenho de algoritmos que realizam cálculos intensivos e independentes entre si, como alguns algoritmos de processamento de imagens \cite{gonzalez2006image}.
