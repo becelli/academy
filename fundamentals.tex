@@ -1,48 +1,15 @@
-% Apresenta a fundamentação teórica dos conceitos usados no trabalho. Pode haver mais de 
-% uma seção tratando da fundamentação, se houver a necessidade de se tratar outros assuntos, 
-% exemplo: trabalhos relacionados, ferramentas, bibliotecas, hardware e outros.
 
 \section{Fundamentação teórica}
 
-A gama de aplicações processo de inpainting em imagens digitais é ampla, uma vez que não se limita a um único domínio de aplicação. Além do uso em fotografia e design gráfico, a técnica pode ser aplicada em diversas áreas, tais como a medicina, engenharia, arquitetura, entre outras, as quais podem se beneficiar da correção de imagens com defeitos, lacunas ou que necessitem manipular informações de forma não intrusiva.
+A gama de aplicações processo de inpainting em imagens digitais é ampla, uma vez que não se limita a um único domínio de aplicação. Em adição ao uso na fotografia e design gráfico, a técnica pode ser aplicada em diversas áreas, tais como a medicina, engenharia, arquitetura, entre outras, as quais podem se beneficiar da correção de imagens com defeitos, lacunas ou que necessitem manipular informações de forma não intrusiva.
 
 Além disso, o conceito de inpainting, inicialmente apresentado em (\ref{introduction}), não agrega apenas as ideias de restauração de imagens ou remoção de objetos, mas também a construção e reconstrução de imagens \cite{you2019pirec}, a preservação da privacidade (por exemplo, borramento de rostos e placas de veículos automotivos) em imagens públicas \cite{google2022magritte}, ao preenchimento de lacunas em imagens de satélites \cite{Maalouf2009bandelet}, entre outros possíveis usos, aos quais alguns serão mais explorados no prosseguir desta revisão. Por fim, o tópico (\ref{related}) apresenta os trabalhos relacionados ao tema. 
 
-Neste trabalho, o escopo de inpainting de imagens pode ser compreendido como uma técnica utilizada para preencher regiões vacantes/danificadas ou remover objetos. O objetivo do inpainting é reconstruir as regiões afetadas de forma que o resultado final seja o mais visualmente plausível possível, ou seja, que a imagem resultante seja natural à ótica humana e não apresente artefatos visuais, enquanto preserva a coerência e consistência da imagem original \cite{levin2003learning}.
+Neste trabalho, o escopo de inpainting de imagens pode ser compreendido como uma técnica utilizada para preencher regiões vacantes/danificadas ou remover objetos. O objetivo do inpainting é reconstruir as regiões afetadas de forma que o resultado seja o mais visualmente plausível possível, ou seja, que a imagem resultante seja natural à ótica humana e não apresente artefatos visuais, enquanto preserva a coerência e consistência da imagem original \cite{levin2003learning}.
 
-Há diversas formas de se implementar o processo de inpainting, sendo que a escolha do método a ser utilizado depende do domínio de aplicação, das características da imagem, do tipo de máscara, entre outros fatores \cite{black2020evaluation}. Contudo, é comum distinguir duas variedades de métodos amplamente utilizados: os métodos "clássicos", os quais geralmente utilizam informações da estrutura ou da imagem ou outras regiões para preencher lacunas, e os métodos baseados em aprendizado, os quais comumente utilizam grandes quantidades de dados para serem treinados, sendo que os métodos baseados em aprendizado são os mais recentes e apresentam geralmente resultados mais satisfatórios.
+Há diversas formas de se implementar o processo de inpainting, sendo que a escolha do método a ser utilizado depende do domínio de aplicação, das características da imagem, do tipo de máscara, entre outros fatores \cite{black2020evaluation}.
+Apesar disto, é comum distinguir duas variedades de métodos amplamente utilizados: os métodos ``clássicos'', os quais geralmente utilizam informações da estrutura ou da imagem ou outras regiões para preencher lacunas, e os métodos baseados em aprendizado, os quais comumente utilizam grandes quantidades de dados para serem treinados, sendo que os métodos baseados em aprendizado são os mais recentes e apresentam geralmente resultados mais satisfatórios.
 
-
-\subsection{Métodos clássicos} \label{patch}
-Os métodos clássicos utilizam informações dos pixels e da região vizinha às regiões  vacantes ou danificadas para preenchê-las. Estes métodos são baseados no princípio de que regiões próximos e similares ao alvo são os mais adequados para preencher a região \cite{patchmatch2009, Bertalmio2001navier}. É possível ainda, dentro desta estratégia, distinguir dois tipos de métodos: os métodos baseados em difusão, tais que propagam as informações próximas da região-alvo para preencher a lacuna, e os métodos baseados em patches e síntese de textura que utilizam amostras de regiões similares para preencher a lacuna.
-
-\begin{list}{}{}
-
-  \item \textbf{Métodos baseados em difusão:} \label{diffusion}
-Segundo \cite{black2020evaluation}, estes métodos transmitem os valores dos pixels adjacentes para as regiões a serem preenchidas e suas implementações são variadas. Métodos como \cite{Telea2004} utilizam uma o Método da Marcha Rápida, que consiste em propagar médias ponderadas das intensidades dos pixels adjacentes para a região-alvo, mantendo as altas e baixas frequências. Há outras implementações como \cite{Bertalmio2001navier}, que utilizam as equações de Navier-Stokes para a difusão de valores de pixels adjacentes ou até os isótopos das imagens. Estes métodos são simples e eficientes computacionalmente, porém, geralmente apresentam resultados com artefatos visuais, como bordas irregulares, texturas deformadas, etc, em especial, para imagens com texturas complexas.
-
-  \item \textbf{Métodos baseados em patches:} \label{sample}
-estes métodos utilizam amostras de regiões conhecidas e similares a região-alvo para reconstruí-la. Assume-se que a região corrompida possui pixels semelhantes a alguma área próxima ou selecionada pelo usário, então o método extrai esta amostra e a transfere para a região desejada, geralmente mantendo a coerência da imagem e a consistência visual. Essa estratégia é simples e eficiente computacionalmente, em especial para imagens com texturas e estruturas mais simples \cite{patchmatch2009}, simultaneamente, costumam apresentar resultados superiores aos de difusão. Em geral, não produzem resultados satisfatórios para lidar com imagens que contenham detalhes finos, imagens com bordas irregulares, imagens com objetos com texturas semelhantes, etc.
-
-\item \textbf{Métodos baseados em síntese de textura:} \label{texture}
- estes métodos estão incluídos na categoria de métodos baseados em patches, pois também utilizam amostras de regiões conhecidas e similares a região-alvo para reconstruí-la. Contudo, estes métodos utilizam amostras de texturas para sintetizar novos pixels para a região-alvo. Estes métodos são baseados no princípio de que a textura de uma região é uma função de sua vizinhança, e assume que a área vizinha ao alvo possui texturas similares, o que viabiliza propagar as bordas e frequências para preenchimento. Utilizar esta estratégia pode produzir resultados satisfatórios para imagens com texturas mais complexas, embora ainda encontrem dificuldades para lidar com imagens com bordas ou padrões irregulares, imagens com objetos com texturas semelhantes, entre outras \cite{bertalmio2003texture}.
-\end{list}
-
-O trabalho de \cite{Bertalmio2000} apresenta uma técnica iterativa que não necessita de intervenção do usuário para selecionar a textura que deve ser utilizada para preencher a região danificada. O ótimo da técnica apresentada é preencher regiões próximas de fronteiras, onde há alta frequência. Apesar disso, o autor comenta que não recomenda-se a utilização para grandes regiões de textura.
-O algoritmo utiliza a estrutura ao redor da região a ser restaurada para ir preenchendo seu contorno. As 
-
-
-\subsection{Métodos baseados em aprendizado} \label{learn-based}
-Os métodos baseados em aprendizado, no que lhe concernem, utilizam técnicas de aprendizado de máquina, como redes neurais convolucionais (CNNs) e redes generativas adversárias (GANs) para preencher a região danificada. Estas técnicas "aprendem" a reconstruir a região danificada a partir de um conjunto de dados de imagens com e/ou sem máscara. Estes métodos são mais recentes e apresentam resultados mais satisfatórios, em especial para imagens com texturas complexas, imagens com bordas irregulares, imagens com objetos com texturas semelhantes, etc. Contudo, estes métodos são mais complexos e computacionalmente mais custosos, devido ao fato que eles necessitam de um grande conjunto de dados para serem treinados \cite{Goodfellow-et-al-2016}, e o treinamento pode ser demorado, conforme o tamanho do conjunto de dados.
-
-\begin{list}{}{}
-\item \textbf{Redes neurais convolucionais:} \label{cnn-based-learning}
-utilizam uma CNN para reconstruir as regiões faltantes. Estes métodos se beneficiam da habilidade das CNNs de aprender as características de uma imagem e conseguem produzir bons resultados para imagens com texturas e estrutura complexas. A rede é treinada em um vasto conjunto de dados de imagens e aprende a reconhecer padrões e as características das imagens. Após o treinamento, a rede utiliza o conhecimento adquirido para gerar novos pixels para a região danificada, ainda preservando a região que a cerca.
-
-\item \textbf{Redes generativas adversárias:} \label{gan-based-learning}
-utilizam uma GAN para gerar novos pixels para preencher a região danificada. As GANs consistem em duas partes: uma rede geradora que gera novos pixels, e um discriminador que avalia a qualidade dos pixels obtidos\cite{black2020evaluation}. Estes métodos podem gerar resultados mais realísticos do que os baseados em CNNs, mas eles são mais custosos computacionalmente e requerem um conjunto de dados maior para treinamento. Consequentemente, estes métodos são mais complexos e costumam levar mais tempo para treinamento \cite{pathakCVPR16context}.
-
-\end{list}
 Em suma, o inpainting de imagem é uma técnica utilizada para preencher regiões faltantes ou corrompidas de uma imagem, como uma nuvem em uma imagem de sensoriamento remoto, ou danos causados pela degradação em fotografias digitalizadas, como na Figura \ref{fig:inpainting-couple}.
 
 \begin{figure}[ht]
@@ -53,17 +20,73 @@ Em suma, o inpainting de imagem é uma técnica utilizada para preencher regiõe
 \end{figure}
 
 
-\subsubsection{Depth Inpainting} \label{quality-depth}
-O Depth Inpainting é uma técnica utilizada para realizar o inpainting de imagens 3D, como é o caso de imagens obtidas por câmeras fotográficas ou sistemas de visão computacional. Esta técnica é útil em situações onde a câmera é incapaz de capturar corretamente as informações de profundidade, como é o caso de objetos translúcidos ou afetados pela luz especular (reflexos) \cite{shish20203dphoto}.
+\subsection{Métodos clássicos} \label{patch}
+Os métodos clássicos utilizam informações dos pixels e da região vizinha às regiões  vacantes ou danificadas para preenchê-las. Estes métodos são baseados no princípio de que regiões próximos e similares ao alvo são os mais adequados para preencher a região \cite{patchmatch2009, Bertalmio2001navier}.
 
-De acordo com \cite{shish20203dphoto}, a técnica de Depth Inpainting consiste em utilizar uma rede neural convolucional para estimar a profundidade de uma imagem, treinada com imagens com values conhecidos, e então utilizar esta estimativa para completar a região faltante.
-Outra abordagem é utilizar técnicas de processamento de imagens, como a interpolação de valores, para aproximar os values da região a ser preenchida. Isto pode ser obtido analisando os padrões e estruturas dos pixels vizinhos. Em ambos casos, o algoritmo precisa ser treinado com uma base de dados de imagens com valores de profundidade conhecidos para aprender a realizar predições.
+É possível ainda, dentro desta estratégia, distinguir dois tipos de métodos: os métodos baseados em difusão, tais que propagam as informações próximas da região-alvo para preencher a lacuna, e os métodos baseados em patches e síntese de textura que utilizam amostras de regiões similares para preencher a lacuna.
+
+\begin{list}{}{}
+
+  \item \textbf{Métodos baseados em difusão:} \label{diffusion}
+Segundo \cite{black2020evaluation}, estes métodos transmitem os valores dos pixels adjacentes para as regiões a serem preenchidas e suas implementações são variadas. Métodos como \cite{Telea2004} utilizam uma o Método da Marcha Rápida, que consiste em propagar médias ponderadas das intensidades dos pixels adjacentes para a região-alvo, mantendo as altas e baixas frequências. Há outras implementações como \cite{Bertalmio2001navier}, que utilizam as equações de Navier-Stokes para a difusão de valores de pixels adjacentes e os isótopos (linhas com tons de cinza semelhantes) existentes. Estes métodos são simples e eficientes computacionalmente, porém, apresentam geralmente resultados com artefatos visuais, como bordas irregulares, texturas deformadas, etc, em especial, para imagens com texturas complexas.
+
+  \item \textbf{Métodos baseados em patches:} \label{sample}
+estes métodos utilizam amostras de regiões conhecidas e similares a região-alvo para reconstruí-la. Assume-se que a região corrompida possui pixels semelhantes a alguma área próxima ou selecionada pelo usuário, então o método extrai esta amostra e a transfere para a região desejada, geralmente mantendo a coerência da imagem e a consistência visual. Essa estratégia é simples e eficiente computacionalmente, em especial para imagens com texturas e estruturas mais simples \cite{patchmatch2009}, simultaneamente, costumam apresentar resultados superiores aos de difusão. Em geral, não produzem resultados satisfatórios para lidar com imagens que contenham detalhes finos, imagens com bordas irregulares, imagens com objetos com texturas semelhantes, etc.
+
+\item \textbf{Métodos baseados em síntese de textura:} \label{texture}
+ estes métodos estão incluídos na categoria de métodos baseados em patches, pois também utilizam amostras de regiões conhecidas e similares a região-alvo para reconstruí-la. Contudo, estes métodos utilizam amostras de texturas para sintetizar novos pixels para a região-alvo. Estes métodos são baseados no princípio de que a textura de uma região é uma função de sua vizinhança, e assume que a área vizinha ao alvo possui texturas similares, o que viabiliza propagar as bordas e frequências para preenchimento. Utilizar esta estratégia pode produzir resultados satisfatórios para imagens com texturas mais complexas, embora ainda encontrem dificuldades para lidar com imagens com bordas ou padrões irregulares, imagens com objetos com texturas semelhantes, entre outras \cite{bertalmio2003texture}.
+\end{list}
+
+O trabalho de \cite{Bertalmio2000} apresenta uma técnica iterativa que não necessita de intervenção do usuário para selecionar a textura que deve ser utilizada para preencher a região danificada. O ótimo da técnica apresentada é preencher regiões próximas de fronteiras, onde há alta frequência. Apesar disso, o autor comenta que não se recomenda a utilização para grandes regiões de textura. O algoritmo utiliza a estrutura ao redor da região a ser restaurada para ir preenchendo seu contorno e reduzindo a área de referência, propagando a textura existente.
+
+\cite{Telea2004} propõe uma técnica que propaga a suavidade e os detalhes da região vizinha conhecida. O autor estima a suavidade como a média ponderada das intensidades e cores dos pixels adjacentes. Para completar o ponto $p$ presente na borda $\partial \Omega$ da região $\Omega$ a ser preenchida, o algoritmo seleciona a vizinhança $\epsilon$ de $p$ e calcula o valor de $p$ como uma função desta vizinhança, ponderando os valores dos pixels adjacentes de forma a manter a suavidade e os detalhes da região vizinha conhecida. A Imagem \ref{fig:telea} apresenta este conceito visualmente. 
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=0.7\textwidth]{inpainting-telea.jpg}
+\caption{Adaptado de \cite{Telea2004}. A imagem retrata o princípio do inpainting para preencher um pixel.
+} 
+\label{fig:telea}
+\end{figure}
+
+\subsection{Métodos baseados em aprendizado} \label{learn-based}
+Os métodos baseados em aprendizado, no que lhe concernem, utilizam técnicas de aprendizado de máquina, como redes neurais convolucionais (CNNs) e redes generativas adversárias (GANs) para preencher a região danificada. Estas técnicas "aprendem" a reconstruir a região danificada a partir de um conjunto de dados de imagens com e/ou sem máscara. Estes métodos são mais recentes e apresentam resultados mais satisfatórios, em especial para imagens com texturas complexas, imagens com bordas irregulares, imagens com objetos com texturas semelhantes, etc. Entretanto, eles geralmente são mais complexos e computacionalmente mais custosos, devido ao fato que de necessitarem de um grande conjunto de dados para serem treinados \cite{Goodfellow-et-al-2016}. Além disso, seu treinamento pode ser demorado, consoante o tamanho do conjunto de dados.
+
+Nesta categoria existem diversos métodos existentes, utilizando diferentes técnicas de aprendizado de máquina e abordagem para o preenchimento. Apesar disto, os métodos podem ser divididos, mas não limitando-os, em dois grandes grupos: métodos baseados em CNNs e métodos baseados em GANs.
+
+\begin{list}{}{}
+\item \textbf{Redes neurais convolucionais:} \label{cnn-based-learning}
+utilizam uma CNN para reconstruir as regiões faltantes. Estes métodos se beneficiam da habilidade das CNNs de aprender as características de uma imagem e conseguem produzir bons resultados para imagens com texturas e estrutura complexas. A rede é treinada em um vasto conjunto de dados de imagens e aprende a reconhecer padrões e as características das imagens. Após o treinamento, a rede utiliza o conhecimento adquirido para gerar novos pixels para a região danificada, ainda preservando a região que a cerca.
+
+\item \textbf{Redes generativas adversárias:} \label{gan-based-learning}
+utilizam uma GAN para gerar novos pixels para preencher a região danificada. As GANs consistem em duas partes: uma rede geradora que gera novos pixels, e um discriminador que avalia a qualidade dos pixels obtidos\cite{black2020evaluation}. Estes métodos podem gerar resultados mais realísticos do que os baseados em CNNs, ao custo de serem mais custosos computacionalmente e requererem um conjunto de dados maior para treinamento. Consequentemente, estes métodos costumam ser mais complexos e consumir mais tempo para treinamento \cite{pathakCVPR16context}.
+
+\end{list}
+
+O artigo de \cite{ren2015shepard} apresenta um método baseado em CNNs para inpainting em que a rede é treinada utilizando imagens tanto com quanto sem máscaras, o que possibilita que ela aprenda a reconstruir as áreas faltantes. Por se basear em \cite{shepard1968two} a máscara de convolução utilizada neste método leva em conta a distância espacial entre o pixel conhecido, que será utilizado como exemplo para a reconstrução, e o pixel a ser reconstruído, permitindo que a contribuição de cada pixel seja ponderada de forma apropriada. A figura \ref{fig:inpainting-convolution-mask.png} mostra um exemplo da máscara de convolução.
+
+\begin{figure}[ht]
+\centering
+\includegraphics[width=1\textwidth]{inpainting-convolution-mask.png}
+\caption{Adaptado de \cite{ren2015shepard}. (a) Aplicação do inpainting em uma imagem. (b) Máscara de convolução utilizada para reconstruir o ponto destacado na imagem.}
+\label{fig:inpainting-convolution-mask.png}
+\end{figure}
+
+
+
+% TODO: Adicionar mais uma referência de GAN ou CNN para inpainting.
+
+
+
+
+
+\section{Conceitos e técnicas} \label{concepts}
 
 \subsection{Seleção da região} 
 A escolha da região a ser preenchida é parte fundamental na qualidade do resultado do processo de inpainting, uma vez que ela afeta diretamente a qualidade dos resultados obtidos. A região selecionada deve abranger a região que se deseja preencher, mas não deve ser muito grande, pois isso pode levar a resultados com textura não realistas, consumir maior tempo de processamento ou até mesmo prejudicar a qualidade da imagem \cite{wang2020vcnet}.
 Ademais, a região escolhida deve ser bem definida e conter uma delimitação clara, para que o algoritmo de preenchimento possa identificar com facilidade a região/estrutura a ser preenchida \cite{huang2014image}.
 
-Alguns métodos realizam este processo de forma automática, sendo conhecidos como Blind Inpainting \cite{wang2020vcnet}. O Trabalho de \cite{wang2020vcnet} apresenta um modelo discrinimativo para classificar os pixels da imagem e identificar as regiões inconsistentes com o conteúdo da imagem como, por exemplo, textos sobrepostos e rabiscos.
+Alguns métodos realizam este processo de forma automática, sendo conhecidos por realizar um ``Inpainting cego'' (do inglês, \emph{Blind Inpainting}). O Trabalho de \cite{wang2020vcnet} apresenta um modelo discrinimativo para classificar os pixels da imagem e identificar as regiões inconsistentes com o conteúdo da imagem como, por exemplo, textos sobrepostos e rabiscos.
 
 Por seguinte, é importante considerar a região que será preenchida, pois o processo de preenchimento pode afetar a coerência do resultado. Por exemplo, o preenchimento de uma região complexa ou que contém o conteúdo principal de uma imagem possui mais detalhes que precisam ser preservados ao comparar-se com o preenchimento de uma região de fundo.
 
@@ -75,12 +98,36 @@ A Figura \ref{fig:inpainting-region} mostra um exemplo da seleção de regiões 
 \label{fig:inpainting-region}
 \end{figure}
 
+\subsection{Inpainting inter-imagens} \label{inpainting-intra}
 
-\subsection{Oportunidades de otimizações computacionais}
+Os métodos clássicos possuem a vantagem de serem mais simples e rápidos, em especial, por utilizarem apenas as informações da própria imagem de entrada. Entretanto, ao se utilizar o aprendizado de máquina para completar imagens, é possível criar redes generativas, normalmente treinadas com um conjunto de dados maior, que podem gerar resultadas baseadas nas imagens que foram utilizadas para o treinamento.
+\cite{li2017generative} e \cite{liao2018face} exploram este conceito na reconstrução de faces, um ``objeto'' que possui características únicas e que geralmente não pode ser gerado com outra região da imagem de entrada. Em sua técnica, \cite{li2017generative} o autor utiliza um modelo generativo, baseado em GANs, contendo um gerador e dois discriminadores. O gerador é responsável por completar as regiões faltantes da imagem, enquanto os discriminadores garantem que a área gerada é semanticamente coerente o realismo da imagem é mantido. A Figura \ref{fig:inpainting-inter} mostra um exemplo de inpainting inter-imagens.
+
+\begin{figure}[ht]
+\centering
+\includegraphics[width=0.8\textwidth]{inpainting-inter.jpg}
+\caption{Adaptado de \cite{li2017generative}. As imagens à esquerda são a entrada. No centro, as máscaras da região a serem preenchidas são aplicadas. À direita estão resultados do processo de inpainting utilizando o método proposto pelo autor.}
+\label{fig:inpainting-inter}
+\end{figure}
+
+Observa-se na Figura \ref{fig:inpainting-inter} que o método proposto pelo autor preenche as regiões com informações não presentes na imagem de entrada (mascarada), como por exemplo, a região dos olhos e da boca. 
+
+
+\subsection{Depth Inpainting} \label{quality-depth}
+O Depth Inpainting é uma técnica utilizada para realizar o inpainting de imagens 3D, como no caso de imagens obtidas por câmeras fotográficas ou sistemas de visão computacional. Esta técnica é útil em situações onde a câmera é incapaz de capturar corretamente as informações de profundidade, como é o caso de objetos translúcidos ou afetados pela luz especular (reflexos) \cite{shish20203dphoto}. 
+
+De acordo com \cite{shish20203dphoto}, a técnica de Depth Inpainting consiste em utilizar uma rede neural convolucional para estimar a profundidade de uma imagem, treinada com imagens com values conhecidos, e então utilizar esta estimativa para completar a região faltante.
+Outra abordagem é utilizar técnicas de processamento de imagens, como a interpolação de valores, para aproximar os values da região a ser preenchida. Isto pode ser obtido analisando os padrões e estruturas dos pixels vizinhos. Em ambos casos, o algoritmo precisa ser treinado com uma base de dados de imagens com valores de profundidade conhecidos para aprender a realizar predições.
+
+% TODO: Algo sobre ML?
+
+
+
+\section{Oportunidades de otimizações computacionais}
 
 Em geral, o processo de complementar regiões faltantes é computacionalmente custoso, porque realiza-se grandes quantidades de cálculos para preencher as regiões selecionadas. Em especial, quando se é necessário processar várias imagens, imagens de alta resolução ou, ao depender da aplicação, o processo de inpainting pode necessitar ser realizado em tempo real, o que torna o processo ainda mais complexo. Por este motivo, é importante considerar as otimizações computacionais que podem ser realizadas para melhorar o desempenho da tarefa de preenchimento de imagens.
 
-A programação paralela (do inglês, \emph{parallel processing}) é uma técnica de programação que permite a execução de múltiplos processos em paralelo, utilizando duas ou mais unidades de processamento (CPUs, GPUs, etc) \cite{tanenbaum2014os}. Para tal, é necessário que o algoritmo de inpainting seja capaz de dividir o processo em partes menores, que podem ser executadas em paralelo. Além disso, é necessário que o algoritmo seja capaz de combinar os resultados obtidos por cada parte do processo, para que o resultado final seja o mesmo que o obtido sem a utilização da programação paralela.
+A programação paralela (do inglês, \emph{parallel processing}) é uma técnica de programação que permite a execução de múltiplos processos em paralelo, utilizando duas ou mais unidades de processamento \cite{tanenbaum2014os}. Para tal, é necessário que o algoritmo de inpainting seja capaz de dividir o processo em partes menores, que podem ser executadas em paralelo. Além disso, é necessário que o algoritmo seja capaz de combinar os resultados obtidos por cada parte do processo, para que o resultado final seja o mesmo que o obtido sem a utilização da programação paralela.
 Normalmente, a programação paralela é utilizada para melhorar o desempenho de algoritmos que realizam cálculos intensivos e independentes entre si, como alguns algoritmos de processamento de imagens \cite{gonzalez2006image}.
 
 O uso de placas gráficas, GPUs (do inglês, \emph{graphics processing units}), é uma estratégia que permite o uso das diversas unidades de processamento gráfico em uma GPU para realizar cálculos de processamento de imagens. As placas gráficas são unidades de processamento que possuem um grande número de núcleos de processamento (cores) e memória de alta velocidade, permitindo que elas sejam utilizadas para realizar cálculos de forma mais rápida que as CPUs, caso os cálculos necessários sejam simples, mas em volumosa quantidade. Além disso, as GPUs possuem um grande número de unidades de processamento, o que permite que o processamento seja realizado em paralelo, utilizando o conceito de programação paralela \cite{tanenbaum2014os}, mencionado anteriormente.

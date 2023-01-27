@@ -43,6 +43,7 @@
     \renewcommand{\listtablename}{\centering \normalsize \uppercase{Lista de tabelas}}
 }
 
+\headheight=16pt
 \pagestyle{fancy}
 \fancyhf{}
 \fancyheadoffset{0cm}
@@ -55,7 +56,7 @@
 }
 
 
-{\setstretch{1}
+{\setstretch{1.4}
 \begin{document}
 \input{title.tex}
 \pagebreak
@@ -67,10 +68,11 @@
 \listoftables{}
 \pagebreak
 
-\pagenumbering{arabic}
+\thispagestyle{empty}
 \tableofcontents{}
 \pagebreak
 
+\pagenumbering{arabic}
 \input{abstract.tex}
 \pagebreak
 

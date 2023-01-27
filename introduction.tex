@@ -7,7 +7,7 @@ Esta área de pesquisa tem sido estudada há várias décadas. Os primeiros trab
 
 \cite{Elharrouss2019} apresenta uma revisão sobre o inpainting de imagens, descrevendo os principais métodos e aplicações. Neste campo, existem várias técnicas para o inpainting de imagens, cada tal com suas próprias vantagens e desvantagens. Uma abordagem popular é apresentada em \cite{Bertalmio2000}, a qual introduz uma técnica de inpainting baseada no conceito de complementar uma região de uma imagem existente. Neste trabalho é utilizado equações diferenciais parciais para propagar informações das bordas da região danificada para o centro da região, permitindo que o algoritmo estime como os pixels devem ser restaurados.
 
-Uma das contribuições mais significativas para o campo de inpainting de imagem é o desenvolvimento do ``Método de Marcha Rápida'' ~\cite{Telea2004}, um algoritmo eficiente que usa equações diferenciais parciais para propagar informações de pixels conhecidos para os pixels desconhecidos na região de inpainting. Este algoritmo tem sido amplamente utilizado em várias aplicações e foi implementado em muitas bibliotecas de software, incluindo a biblioteca de código aberto de visão computacional OpenCV \cite{OpenCV}. Este método tem demonstrado produzir resultados de alta qualidade para uma ampla variedade de tipos de imagem e cenários, e se tornou uma das referências para avaliar o desempenho de outros algoritmos de inpainting.
+Uma das contribuições significativas para o campo de inpainting de imagem é o desenvolvimento do trabalho de ~\cite{Telea2004}, um algoritmo eficiente que usa a informação das fronteiras para propagar informações de pixels conhecidos para os pixels desconhecidos na região de inpainting. Este algoritmo tem sido amplamente utilizado em várias aplicações, devido a ser implementado em algumsa bibliotecas de software, incluindo a biblioteca de código aberto de visão computacional OpenCV \cite{OpenCV}. Este método tem demonstrado produzir resultados de alta qualidade para uma ampla variedade de tipos de imagem e cenários, e se tornou uma das referências para avaliar o desempenho de outros algoritmos de inpainting.
 
 Nos últimos anos, houve um aumento de interesse em utilizar métodos baseados em aprendizado de máquina, como redes adversárias gerativas (GANs) e redes neurais convolucionais (CNNs) \cite{pathakCVPR16context}, para resolver o problema de inpainting. Esses métodos têm o potencial de aprender padrões e estruturas complexas a partir de grandes conjuntos de dados, o que pode ser usado para gerar resultados de inpainting de alta qualidade. No entanto, esses métodos podem ser computacionalmente caros e podem exigir uma abundância de dados de treinamento para obter bons resultados.
 
@@ -17,7 +17,7 @@ remoção de imperfeições de fotografias. Além disso, pode-se utilizar os mes
 O principal problema encontrado neste campo de pesquisa são a escolha do método de inpainting mais adequado para cada tipo de imagem e cenário. Este fator se deve às desvantagens que os métodos existentes proporcionam \cite{Salem2021}. Em geral, os maiores desafios são:
 \begin{itemize} 
   \item \textbf{Preservação da consistência e estrutura da imagem de entrada:} muitos modelos geradores podem gerar imagens visualmente agradáveis, mas que não correspondem perfeitamente com a vizinhança ou à textura da imagem original.
-  \item \textbf{Preservação de pequenos detalhes:} este problema é particularmente desafiador para imagens com texturas complexas, como imagens de paisagens naturais, ou a área que está sendo restaurada é muito grande.
+  \item \textbf{Preservação de detalhes finos:} este problema é particularmente desafiador para imagens com texturas complexas, como imagens de paisagens naturais, ou a área que está sendo restaurada é muito grande.
   \item \textbf{Reconstruir objetos sobrepostos:} quando um objeto é parcial ou completamente sobreposto, como um objeto que está coberto por uma nuvem, o modelo gerador pode não ser capaz de reconstruir o objeto original.
   \item \textbf{Preenchimento de grandes regiões:} a geração de imagens de alta qualidade quando há uma grande região a ser reconstruída ainda é um problema desafiador.
   \item \textbf{Desempenho computacional:} a maioria dos métodos de inpainting de imagens que geram imagens de alta qualidade são computacionalmente caros, dificultando sua aplicação em tempo real.
@@ -41,6 +41,7 @@ Os três objetivos secundários representam o âmbito deste trabalho dentro do o
 
 \subsection{Organização do Trabalho}
 Inicialmente apresenta-se uma fundamentação teórica sobre o processo de inpainting, incluindo uma breve introdução sobre o escopo de inpainting, as principais categorias da área e posteriormente uma revisão de alguns dos principais métodos utilizados.
+
 Em seguida, há uma seção destinada a mencionar algumas possíveis técnicas de otimização computacionais que podem ser aplicadas caso haja a possibilidade de serem implementadas.
 
-Por fim, é apresentado um 
+Por fim, é apresentado um levantamento de trabalhos e artigos científicos que se relacionam com o tema do trabalho, bem como uma breve descrição de cada um deles.

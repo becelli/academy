@@ -2,19 +2,23 @@
 
 A Tabela \ref{related-works} apresenta, de forma resumida, os principais trabalhos relacionados ao tema deste trabalho, apresentando os seus objetivos, métodos e resultados.
 
-% Referência | ano | Objetivo | Método | Resultado
-% do not overflow the page width.
-% break lines if necessary.
-% use tabularx environment
 \begin{table}[h]
 \centering
-\caption{Trabalhos relacionados ao tema deste trabalho.}
+\caption{Trabalhos relacionados ao tema desta revisão.}
+\vspace{0.5cm}
 \label{related-works}
-\begin{tabularx}{\linewidth}{|l|l|X|X|X|}
+\begin{tabularx}{\linewidth}{|p{4cm}|l|X|}
 \hline
-\textbf{Referência} & \textbf{Ano} & \textbf{Objetivo} & \textbf{Método} & \textbf{Resultado} \\
+\textbf{Referência} & \textbf{Ano} & \textbf{Descrição} \\
 \hline
-\cite{Bertalmio2000} & 2000 & Inpainting de imagens com texturas e estruturas simples. & Patch-based. & Imagens com texturas e estruturas simples. \\
+Image Inpainting \cite{Bertalmio2000} & 2000 & Baseia-se no uso de amostras sem a necessidade de serem explicitamente selecionados pelo usuário. O algoritmo os seleciona automaticamente e completa as regiões utilizando síntese de textura. O algoritmo possui limitações ao ser utilizado em grandes regiões com texturas complexas, pois não consegue reproduzir a textura sem causar borramentos. \\
+
+\hline
+
+An Image Inpainting Technique Based on the Fast Marching Method \cite{Telea2004} & 2004 & Este trabalho visa obter resultados satisfatórios com um algortimo mais simples e rápido. O autor propõe preencher a região a ser recuperada ponderando a região vizinha, assim como apresentado por \cite{Bertalmio2000}. Em suma, o método poposto produz resultados satisfatórios para remoção de textos e arranhões e, segundo o autor, possui suas limitações quando a região a ser preenchida se torna maior que 10-15 pixels. \\
+
+\hline
+
 
 
 \hline
