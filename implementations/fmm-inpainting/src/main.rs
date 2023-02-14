@@ -1,5 +1,5 @@
 use image::{self, DynamicImage, GenericImage, GenericImageView, Pixel, Rgba};
-use nalgebra::DMatrix;
+// use nalgebra::DMatrix;
 use ordered_float::OrderedFloat;
 // use rayon::prelude::{
 //     IndexedParallelIterator, IntoParallelIterator, IntoParallelRefIterator, ParallelIterator,
@@ -12,6 +12,8 @@ const BAND: u8 = 1;
 const UNKNOWN: u8 = 2;
 
 type Position = (i32, i32);
+type Distances = Vec<Vec<f64>>;
+type Conditions = Vec<Vec<u8>>;
 
 fn area_to_inpaint(mask: &DynamicImage) -> Vec<Position> {
     mask.pixels()
@@ -29,13 +31,13 @@ fn get_neighbors_4(pos: Position) -> Vec<Position> {
     ]
 }
 
-fn init_pixels_conditions(mask: &DynamicImage) -> DMatrix<u8> {
+fn init_pixels_conditions(mask: &DynamicImage) -> Conditions {
     let (width, height) = (mask.dimensions().0 as usize, mask.dimensions().1 as usize);
-    let mut conditions: DMatrix<u8> = DMatrix::from_element(width, height, KNOWN);
+    let mut conditions: Conditions = vec![vec![KNOWN; height]; width];
 
     mask.pixels()
         .filter(|(_, _, pixel)| pixel.channels()[0] != 0)
-        .for_each(|(x, y, _)| conditions[(x as usize, y as usize)] = UNKNOWN);
+        .for_each(|(x, y, _)| conditions[x as usize][y as usize] = UNKNOWN);
 
     conditions
 }
@@ -49,17 +51,17 @@ fn fmm_init(
     radius: u8,
 ) -> Result<
     (
-        DMatrix<f64>,
-        DMatrix<u8>,
+        Distances,
+        Conditions,
         coll::BinaryHeap<(OrderedFloat<f64>, Position)>,
     ),
     String,
 > {
     let (width, height) = (mask.dimensions().0 as usize, mask.dimensions().1 as usize);
 
-    let mut distances: DMatrix<f64> = DMatrix::from_element(width, height, f64::MAX);
+    let mut distances: Distances = vec![vec![f64::MAX; height]; width];
 
-    let mut conditions: DMatrix<u8> = init_pixels_conditions(mask);
+    let mut conditions: Conditions = init_pixels_conditions(mask);
 
     let mut field: coll::BinaryHeap<(OrderedFloat<f64>, Position)> = coll::BinaryHeap::new();
 
@@ -73,11 +75,11 @@ fn fmm_init(
                 && ny < height as i32
                 && nx >= 0
                 && ny >= 0
-                && conditions[(nx as usize, ny as usize)] != BAND
+                && conditions[nx as usize][ny as usize] != BAND
                 && pixel_is_zero(mask, nx, ny)
             {
-                conditions[(nx as usize, ny as usize)] = BAND;
-                distances[(nx as usize, ny as usize)] = 0.0;
+                conditions[nx as usize][ny as usize] = BAND;
+                distances[nx as usize][ny as usize] = 0.0;
                 field.push((OrderedFloat(0.0), (nx, ny)));
             }
         }
@@ -89,24 +91,28 @@ fn fmm_init(
 }
 
 fn calc_outside_distances(
-    distances: &mut DMatrix<f64>,
-    conditions: &DMatrix<u8>,
+    distances: &mut Distances,
+    conditions: &Conditions,
     field: &coll::BinaryHeap<(OrderedFloat<f64>, Position)>,
     radius: u8,
 ) {
-    let (width, height) = (distances.nrows(), distances.ncols());
+    let (width, height) = (distances.len(), distances[0].len());
 
     // Swap conditions values
-    let mut l_conditions: DMatrix<u8> = DMatrix::from_element(width, height, UNKNOWN);
+
+    let mut l_conditions: Conditions = vec![vec![UNKNOWN; height]; width];
     let mut l_field = field.clone();
 
     // Swap UNKNOWN and KNOWN values
-    conditions.iter().enumerate().for_each(|(i, &c)| {
-        l_conditions[(i % width, i / width)] = match c {
-            UNKNOWN => KNOWN,
-            KNOWN => UNKNOWN,
-            _ => c,
-        }
+    // });
+    conditions.iter().enumerate().for_each(|(i, c)| {
+        c.iter().enumerate().for_each(|(j, &v)| {
+            l_conditions[i][j] = match v {
+                UNKNOWN => KNOWN,
+                KNOWN => UNKNOWN,
+                _ => v,
+            }
+        })
     });
 
     let mut min_dist: f64 = 0.0;
@@ -117,12 +123,13 @@ fn calc_outside_distances(
             break;
         }
 
-        l_conditions[(x as usize, y as usize)] = KNOWN;
+        // l_conditions[x as usize][y as usize] = KNOWN;
+        l_conditions[x as usize][y as usize] = KNOWN;
         let neighbors = get_neighbors_4((x, y));
         for (nx, ny) in neighbors {
             if nx < width as i32
                 && ny < height as i32
-                && conditions[(nx as usize, ny as usize)] == UNKNOWN
+                && conditions[nx as usize][ny as usize] == UNKNOWN
             {
                 let top_left = eikonal_solve(nx - 1, ny - 1, x, y, distances, conditions);
                 let top_right = eikonal_solve(nx + 1, ny - 1, x, y, distances, conditions);
@@ -130,15 +137,16 @@ fn calc_outside_distances(
                 let bottom_left = eikonal_solve(nx - 1, ny + 1, x, y, distances, conditions);
                 min_dist = top_left.min(top_right).min(bottom_right).min(bottom_left);
 
-                distances[(nx as usize, ny as usize)] = min_dist;
-                l_conditions[(nx as usize, ny as usize)] = BAND;
+                distances[nx as usize][ny as usize] = min_dist;
+                l_conditions[nx as usize][ny as usize] = BAND;
                 l_field.push((OrderedFloat(min_dist), (nx, ny)));
             }
         }
     }
 
-    // Invert distances (distances * -1)
-    distances.iter_mut().for_each(|d| *d *= -1.0);
+    distances
+        .iter_mut()
+        .for_each(|d| d.iter_mut().for_each(|v| *v *= -1.0));
 }
 
 fn eikonal_solve(
@@ -146,10 +154,10 @@ fn eikonal_solve(
     y1: i32,
     x2: i32,
     y2: i32,
-    distances: &DMatrix<f64>,
-    conditions: &DMatrix<u8>,
+    distances: &Distances,
+    conditions: &Conditions,
 ) -> f64 {
-    let (width, height) = (distances.nrows(), distances.ncols());
+    let (width, height) = (distances.len(), distances[0].len());
 
     if x1 >= width as i32
         || y1 >= height as i32
@@ -163,12 +171,12 @@ fn eikonal_solve(
         return f64::MAX;
     }
 
-    let cond_1 = conditions[(x1 as usize, y1 as usize)];
-    let cond_2 = conditions[(x2 as usize, y2 as usize)];
+    let cond_1 = conditions[x1 as usize][y1 as usize];
+    let cond_2 = conditions[x2 as usize][y2 as usize];
 
     if cond_1 == KNOWN && cond_2 == KNOWN {
-        let dist_1 = distances[(x1 as usize, y1 as usize)];
-        let dist_2 = distances[(x2 as usize, y2 as usize)];
+        let dist_1 = distances[x1 as usize][y1 as usize];
+        let dist_2 = distances[x2 as usize][y2 as usize];
 
         let diff = 2.0 - (dist_1 - dist_2).powi(2);
 
@@ -187,11 +195,11 @@ fn eikonal_solve(
     }
 
     if cond_1 == KNOWN {
-        return 1.0 + distances[(x1 as usize, y1 as usize)];
+        return 1.0 + distances[x1 as usize][y1 as usize];
     }
 
     if cond_2 == KNOWN {
-        return 1.0 + distances[(x2 as usize, y2 as usize)];
+        return 1.0 + distances[x2 as usize][y2 as usize];
     }
 
     f64::MAX
@@ -217,14 +225,14 @@ fn fmm_inpainting(
     let (mut distances, mut conditions, mut field) = fmm_init(mask, radius)?;
 
     while let Some((_, (x, y))) = field.pop() {
-        conditions[(x as usize, y as usize)] = KNOWN;
+        conditions[x as usize][y as usize] = KNOWN;
         let neighbors = get_neighbors_4((x, y));
         for (nx, ny) in neighbors {
             if nx < width as i32
                 && ny < height as i32
                 && nx > 0
                 && ny > 0
-                && conditions[(nx as usize, ny as usize)] == UNKNOWN
+                && conditions[nx as usize][ny as usize] == UNKNOWN
             {
                 let top_left = eikonal_solve(nx - 1, ny - 1, x, y, &distances, &conditions);
                 let top_right = eikonal_solve(nx + 1, ny - 1, x, y, &distances, &conditions);
@@ -232,7 +240,7 @@ fn fmm_inpainting(
                 let bottom_left = eikonal_solve(nx - 1, ny + 1, x, y, &distances, &conditions);
                 let min_dist = top_left.min(top_right).min(bottom_right).min(bottom_left);
 
-                distances[(nx as usize, ny as usize)] = min_dist;
+                distances[nx as usize][ny as usize] = min_dist;
                 inpaint_pixel(
                     &mut result,
                     nx as i32,
@@ -241,7 +249,7 @@ fn fmm_inpainting(
                     &conditions,
                     radius as i32,
                 );
-                conditions[(nx as usize, ny as usize)] = BAND;
+                conditions[nx as usize][ny as usize] = BAND;
                 field.push((OrderedFloat(min_dist), (nx, ny)));
             }
         }
@@ -254,13 +262,13 @@ fn inpaint_pixel(
     img: &mut DynamicImage,
     x: i32,
     y: i32,
-    distances: &DMatrix<f64>,
-    conditions: &DMatrix<u8>,
+    distances: &Distances,
+    conditions: &Conditions,
     radius: i32,
 ) {
     let (width, height) = (img.width() as i32, img.height() as i32);
 
-    let dist = distances[(x as usize, y as usize)];
+    let dist = distances[x as usize][y as usize];
 
     let (d_grad_x, d_grad_y) = pixel_gradient(&distances, x as usize, y as usize, &conditions);
 
@@ -273,7 +281,7 @@ fn inpaint_pixel(
                 && nb_y < height
                 && nb_x >= 0
                 && nb_y >= 0
-                && conditions[(nb_x as usize, nb_y as usize)] != UNKNOWN
+                && conditions[nb_x as usize][nb_y as usize] != UNKNOWN
             {
                 let vec_x = x - nb_x;
                 let vec_y = y - nb_y;
@@ -288,7 +296,7 @@ fn inpaint_pixel(
                     .abs()
                     .max(f64::EPSILON);
 
-                let nb_dist = distances[(nb_x as usize, nb_y as usize)];
+                let nb_dist = distances[nb_x as usize][nb_y as usize];
                 let level_factor = 1.0 / (1.0 + (nb_dist - dist).abs());
 
                 let dist_factor = 1.0 / vec_len.powi(3);
@@ -313,26 +321,26 @@ fn inpaint_pixel(
     img.put_pixel(x as u32, y as u32, Rgba(pixel_val));
 }
 
-fn pixel_gradient(dists: &DMatrix<f64>, x: usize, y: usize, conds: &DMatrix<u8>) -> (f64, f64) {
+fn pixel_gradient(dists: &Distances, x: usize, y: usize, conds: &Conditions) -> (f64, f64) {
     let (grad_x, grad_y): (f64, f64);
 
-    let (width, height) = (dists.nrows(), dists.ncols());
+    let (width, height) = (dists.len(), dists[0].len());
 
-    let dist = dists[(x as usize, y as usize)];
+    let dist = dists[x as usize][y as usize];
 
     let (prev_x, next_x) = (x - 1, x + 1);
     if next_x >= width - 1 {
         grad_x = f64::MAX
     } else {
         // println!("prev_x: {}, y: {} of max: {}, {}", prev_x, y, width, height);
-        let prev_cond = conds[(prev_x, y)];
+        let prev_cond = conds[prev_x][y];
         // println!("Next_x: {}, y: {} of max: {}, {}", next_x, y, width, height);
-        let next_cond = conds[(next_x, y)];
+        let next_cond = conds[next_x][y];
 
         grad_x = match (prev_cond != UNKNOWN, next_cond != UNKNOWN) {
-            (true, true) => (dists[(next_x, y)] - dists[(prev_x, y)]) / 2.0,
-            (true, false) => dist - dists[(prev_x, y)],
-            (false, true) => dists[(next_x, y)] - dist,
+            (true, true) => (dists[next_x][y] - dists[prev_x][y]) / 2.0,
+            (true, false) => dist - dists[prev_x][y],
+            (false, true) => dists[next_x][y] - dist,
             (false, false) => 0.0,
         };
     }
@@ -341,13 +349,13 @@ fn pixel_gradient(dists: &DMatrix<f64>, x: usize, y: usize, conds: &DMatrix<u8>)
     if next_y >= height {
         grad_y = f64::MAX
     } else {
-        let prev_cond = conds[(x, prev_y)];
-        let next_cond = conds[(x, next_y)];
+        let prev_cond = conds[x][prev_y];
+        let next_cond = conds[x][next_y];
 
         grad_y = match (prev_cond != UNKNOWN, next_cond != UNKNOWN) {
-            (true, true) => (dists[(x, next_y)] - dists[(x, prev_y)]) / 2.0,
-            (true, false) => dist - dists[(x, prev_y)],
-            (false, true) => dists[(x, next_y)] - dist,
+            (true, true) => (dists[x][next_y] - dists[x][prev_y]) / 2.0,
+            (true, false) => dist - dists[x][prev_y],
+            (false, true) => dists[x][next_y] - dist,
             (false, false) => 0.0,
         };
     }
@@ -357,7 +365,6 @@ fn pixel_gradient(dists: &DMatrix<f64>, x: usize, y: usize, conds: &DMatrix<u8>)
 
 fn main() {
     let img: DynamicImage = image::open("samples/text-horse.png").unwrap();
-    // let mask = image::open("samples/mask.png").unwrap();
     let mask = image::open("samples/text-horse-mask.png").unwrap();
     let radius = 5;
 
