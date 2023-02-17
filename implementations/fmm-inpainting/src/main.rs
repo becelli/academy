@@ -1,15 +1,7 @@
 mod defs;
-use defs::{Distances, Position, State, States, DIST_MAX};
+use defs::{get_mat, new_heap, Distances, Heap, Position, State, States, DIST_MAX};
 use image::{self, DynamicImage, GenericImage, GenericImageView, Pixel, Rgba};
 use ordered_float::OrderedFloat;
-use std::collections::BinaryHeap;
-
-fn area_to_inpaint(mask: &DynamicImage) -> Vec<Position> {
-    mask.pixels()
-        .filter(|(_, _, pixel)| pixel.channels()[0] != 0)
-        .map(|(x, y, _)| (x as i32, y as i32))
-        .collect()
-}
 
 fn get_neighbors_4(pos: Position) -> Vec<Position> {
     vec![
@@ -20,114 +12,85 @@ fn get_neighbors_4(pos: Position) -> Vec<Position> {
     ]
 }
 
-fn init_pixels_states(mask: &DynamicImage) -> States {
-    let (width, height) = (mask.dimensions().0 as usize, mask.dimensions().1 as usize);
-    let mut states: States = vec![vec![State::Known; height]; width];
+fn init(mask: &DynamicImage, radius: u8) -> (Distances, States, Heap) {
+    let (width, height) = (mask.dimensions().0 as i32, mask.dimensions().1 as i32);
+
+    let mut distances: Distances = get_mat(width as usize, height as usize, DIST_MAX);
+    let mut states: States = get_mat(width as usize, height as usize, State::Known);
+    let mut field: Heap = new_heap();
 
     mask.pixels()
         .filter(|(_, _, pixel)| pixel.channels()[0] != 0)
-        .for_each(|(x, y, _)| states[x as usize][y as usize] = State::Unknown);
+        .for_each(|(x, y, _)| {
+            states[x as usize][y as usize] = State::Unknown;
 
-    states
-}
+            let neighbors: Vec<Position> = get_neighbors_4((x as i32, y as i32));
 
-fn pixel_is_zero(mask: &DynamicImage, x: i32, y: i32) -> bool {
-    mask.get_pixel(x as u32, y as u32).channels()[0] == 0
-}
+            for (nx, ny) in neighbors {
+                if nx < (width - 1) && ny < (height - 1) && nx > 0 && ny > 0 {
+                    let state = &mut states[nx as usize][ny as usize];
+                    let pixel_is_zero = mask.get_pixel(nx as u32, ny as u32).channels()[0] == 0;
 
-fn fmm_init(
-    mask: &DynamicImage,
-    radius: u8,
-) -> Result<(Distances, States, BinaryHeap<(OrderedFloat<f64>, Position)>), String> {
-    let (width, height) = (mask.dimensions().0 as usize, mask.dimensions().1 as usize);
-
-    let mut distances: Distances = vec![vec![DIST_MAX; height]; width];
-
-    let mut states: States = init_pixels_states(mask);
-
-    let mut field: BinaryHeap<(OrderedFloat<f64>, Position)> = BinaryHeap::new();
-
-    let pixels_to_inpaint: Vec<Position> = area_to_inpaint(mask);
-
-    for pos in pixels_to_inpaint {
-        let neighbors = get_neighbors_4(pos);
-        for (nx, ny) in neighbors {
-            // As we are working with unsigned integers, if (x, y) is (0, 0), then (nx, ny) will be (u32::MAX, u32::MAX).
-            if nx < width as i32
-                && ny < height as i32
-                && nx >= 0
-                && ny >= 0
-                && !states[nx as usize][ny as usize].is_band()
-                && pixel_is_zero(mask, nx, ny)
-            {
-                states[nx as usize][ny as usize] = State::Band;
-                distances[nx as usize][ny as usize] = 0.0;
-                field.push((OrderedFloat(0.0), (nx, ny)));
+                    if !state.is_band() && pixel_is_zero {
+                        *state = State::Band;
+                        distances[nx as usize][ny as usize] = 0f64;
+                        field.push((OrderedFloat(0.0), (nx, ny)));
+                    }
+                }
             }
-        }
-    }
+        });
 
     calc_outside_distances(&mut distances, &mut states, &mut field, radius);
 
-    Ok((distances, states, field))
+    (distances, states, field)
 }
 
 fn calc_outside_distances(
     distances: &mut Distances,
-    states: &States,
-    field: &BinaryHeap<(OrderedFloat<f64>, Position)>,
+    states: &mut States,
+    field: &mut Heap,
     radius: u8,
 ) {
     let (width, height) = (distances.len(), distances[0].len());
 
-    // Swap states values
-    let mut l_field = field.clone();
-    let mut l_states = vec![vec![State::Unknown; height]; width];
-
-    // Swap State::Unknown and State::Known values
-    // });
-    states.iter().enumerate().for_each(|(i, c)| {
-        c.iter().enumerate().for_each(|(j, v)| {
-            l_states[i][j] = match v {
-                State::Unknown => State::Known,
-                State::Known => State::Unknown,
-                State::Band => State::Band,
-            }
-        })
-    });
-
     let mut min_dist: f64 = 0.0;
     let diameter = radius as f64 * 2.0;
 
-    while let Some((_, (x, y))) = l_field.pop() {
+    while let Some((_, (x, y))) = field.pop() {
         if min_dist >= diameter {
             break;
         }
 
-        // l_states[x as usize][y as usize] = State::Known;
-        l_states[x as usize][y as usize] = State::Known;
+        states[x as usize][y as usize] = State::Change;
         let neighbors = get_neighbors_4((x, y));
         for (nx, ny) in neighbors {
-            if nx < width as i32
-                && ny < height as i32
+            if nx < (width - 1) as i32
+                && ny < (height - 1) as i32
+                && nx > 0
+                && ny > 0
                 && states[nx as usize][ny as usize].is_unknown()
             {
-                let top_left = eikonal_solve(nx - 1, ny - 1, x, y, distances, states);
-                let top_right = eikonal_solve(nx + 1, ny - 1, x, y, distances, states);
-                let bottom_right = eikonal_solve(nx + 1, ny + 1, x, y, distances, states);
-                let bottom_left = eikonal_solve(nx - 1, ny + 1, x, y, distances, states);
-                min_dist = top_left.min(top_right).min(bottom_right).min(bottom_left);
+                let p1 = eikonal_solve(nx - 1, ny, nx, ny - 1, &distances, &states);
+                let p2 = eikonal_solve(nx + 1, ny, nx, ny + 1, &distances, &states);
+                let p3 = eikonal_solve(nx - 1, ny, nx, ny + 1, &distances, &states);
+                let p4 = eikonal_solve(nx + 1, ny, nx, ny - 1, &distances, &states);
+                min_dist = p1.min(p2).min(p3).min(p4);
 
                 distances[nx as usize][ny as usize] = min_dist;
-                l_states[nx as usize][ny as usize] = State::Band;
-                l_field.push((OrderedFloat(min_dist), (nx, ny)));
+                states[nx as usize][ny as usize] = State::Band;
+                field.push((OrderedFloat(min_dist), (nx, ny)));
             }
         }
     }
 
-    distances
-        .iter_mut()
-        .for_each(|d| d.iter_mut().for_each(|v| *v *= -1.0));
+    distances.iter_mut().enumerate().for_each(|(i, c)| {
+        c.iter_mut().enumerate().for_each(|(j, v)| {
+            if states[i][j].is_change() {
+                *v *= -1.0;
+                states[i][j] = State::Known;
+            }
+        })
+    });
 }
 
 fn eikonal_solve(
@@ -138,18 +101,18 @@ fn eikonal_solve(
     distances: &Distances,
     states: &States,
 ) -> f64 {
-    let (width, height) = (distances.len(), distances[0].len());
+    let (width, height) = (distances.len() as i32, distances[0].len() as i32);
 
-    if x1 >= width as i32
-        || y1 >= height as i32
-        || x2 >= width as i32
-        || y2 >= height as i32
-        || x1 < 0
+    if x1 < 0
         || y1 < 0
         || x2 < 0
         || y2 < 0
+        || x1 >= width
+        || y1 >= height
+        || x2 >= width
+        || y2 >= height
     {
-        // println!("Caiu aqui");
+        assert!(false);
         return DIST_MAX;
     }
 
@@ -179,61 +142,6 @@ fn eikonal_solve(
 
     sol
 }
-// fn eikonal_solve(
-//     x1: i32,
-//     y1: i32,
-//     x2: i32,
-//     y2: i32,
-//     distances: &Distances,
-//     states: &States,
-// ) -> f64 {
-//     let (width, height) = (distances.len(), distances[0].len());
-
-//     if x1 >= width as i32
-//         || y1 >= height as i32
-//         || x2 >= width as i32
-//         || y2 >= height as i32
-//         || x1 < 0
-//         || y1 < 0
-//         || x2 < 0
-//         || y2 < 0
-//     {
-//         return DIST_MAX;
-//     }
-
-//     let state_1: &State = &states[x1 as usize][y1 as usize];
-//     let state_2: &State = &states[x2 as usize][y2 as usize];
-
-//     if state_1.is_known() && state_2.is_known() {
-//         let dist_1 = distances[x1 as usize][y1 as usize];
-//         let dist_2 = distances[x2 as usize][y2 as usize];
-
-//         let diff = 2.0 - (dist_1 - dist_2).powi(2);
-
-//         if diff > 0.0 {
-//             let r = diff.sqrt();
-//             let mut s = (dist_1 + dist_2 + r) / 2.0;
-//             if s >= dist_1 && s >= dist_2 {
-//                 return s;
-//             }
-//             s += r;
-//             if s >= dist_1 && s >= dist_2 {
-//                 return s;
-//             }
-//             return DIST_MAX;
-//         }
-//     }
-
-//     if state_1.is_known() {
-//         return 1.0 + distances[x1 as usize][y1 as usize];
-//     }
-
-//     if state_2.is_known() {
-//         return 1.0 + distances[x2 as usize][y2 as usize];
-//     }
-
-//     DIST_MAX
-// }
 
 // fast_marching_method for inpainting (Telea, 2004)
 fn fmm_inpainting(
@@ -250,7 +158,7 @@ fn fmm_inpainting(
     }
 
     let mut result = img.clone();
-    let (mut distances, mut states, mut field) = fmm_init(mask, radius)?;
+    let (mut distances, mut states, mut field) = init(mask, radius);
 
     while let Some((_, (x, y))) = field.pop() {
         states[x as usize][y as usize] = State::Known;
@@ -262,21 +170,14 @@ fn fmm_inpainting(
                 && ny > 0
                 && states[nx as usize][ny as usize].is_unknown()
             {
-                let top_left = eikonal_solve(nx - 1, ny - 1, x, y, &distances, &states);
-                let top_right = eikonal_solve(nx + 1, ny - 1, x, y, &distances, &states);
-                let bottom_right = eikonal_solve(nx + 1, ny + 1, x, y, &distances, &states);
-                let bottom_left = eikonal_solve(nx - 1, ny + 1, x, y, &distances, &states);
-                let min_dist = top_left.min(top_right).min(bottom_right).min(bottom_left);
+                let p1 = eikonal_solve(nx - 1, ny, nx, ny - 1, &distances, &states);
+                let p2 = eikonal_solve(nx + 1, ny, nx, ny + 1, &distances, &states);
+                let p3 = eikonal_solve(nx - 1, ny, nx, ny + 1, &distances, &states);
+                let p4 = eikonal_solve(nx + 1, ny, nx, ny - 1, &distances, &states);
+                let min_dist = p1.min(p2).min(p3).min(p4);
 
                 distances[nx as usize][ny as usize] = min_dist;
-                inpaint_pixel(
-                    &mut result,
-                    nx as i32,
-                    ny as i32,
-                    &distances,
-                    &states,
-                    radius as i32,
-                );
+                inpaint_pixel(&mut result, nx, ny, &distances, &states, radius as i32);
                 states[nx as usize][ny as usize] = State::Band;
                 field.push((OrderedFloat(min_dist), (nx, ny)));
             }
@@ -286,6 +187,7 @@ fn fmm_inpainting(
     Ok(result)
 }
 
+#[inline(always)]
 fn inpaint_pixel(
     img: &mut DynamicImage,
     x: i32,
@@ -298,7 +200,7 @@ fn inpaint_pixel(
 
     let dist = distances[x as usize][y as usize];
 
-    let (d_grad_x, d_grad_y) = pixel_gradient(&distances, x as usize, y as usize, &states);
+    let (d_grad_x, d_grad_y) = pixel_gradient(distances, x as usize, y as usize, states);
 
     let mut new_pixel: [f64; 4] = [0.0; 4];
     let mut weight_sum = 0.0;
@@ -354,7 +256,7 @@ fn pixel_gradient(dists: &Distances, x: usize, y: usize, states: &States) -> (f6
 
     let (width, height) = (dists.len(), dists[0].len());
 
-    let dist = dists[x as usize][y as usize];
+    let dist = dists[x][y];
 
     let (prev_x, next_x) = (x - 1, x + 1);
     if next_x >= width - 1 {
@@ -391,10 +293,14 @@ fn pixel_gradient(dists: &Distances, x: usize, y: usize, states: &States) -> (f6
 }
 
 fn main() {
-    // let img: DynamicImage = image::open("samples/text-horse.png").unwrap();
-    let img: DynamicImage = image::open("samples/becelli.png").unwrap();
-    let mask = image::open("samples/becelli-mask.png").unwrap();
     let radius = 5;
-    let result = fmm_inpainting(&img, &mask, radius).unwrap();
-    result.save("samples/becelli-inpainted.png").unwrap();
+
+    let names = ["becelli", "text-horse"];
+
+    for name in names.iter() {
+        let img: DynamicImage = image::open(format!("samples/{}.png", name)).unwrap();
+        let mask: DynamicImage = image::open(format!("samples/{}_mask.png", name)).unwrap();
+        let result = fmm_inpainting(&img, &mask, radius).unwrap();
+        result.save(format!("samples/{}_result.png", name)).unwrap();
+    }
 }
