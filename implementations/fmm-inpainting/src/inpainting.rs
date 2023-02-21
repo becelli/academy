@@ -1,4 +1,4 @@
-use super::aux::{get_neighbors_4, get_neighbors_n};
+use super::neighborhood::{get_neighbors_4, get_neighbors_n};
 use super::def::{get_mat, Distances, Heap, Point, State, States, DIST_MAX};
 use image::{self, DynamicImage, GenericImage, GenericImageView, Pixel, Rgba};
 

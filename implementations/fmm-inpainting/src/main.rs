@@ -1,4 +1,4 @@
-mod aux;
+mod neighborhood;
 mod def;
 mod inpainting;
 use image::DynamicImage;
@@ -10,7 +10,7 @@ fn main() {
     // env::set_var("RUST_BACKTRACE", "full");
     let radius = 5;
 
-    let names = ["becelli", "text-horse"];
+    let names = ["text-horse"];
 
     for name in names.iter() {
         let img: DynamicImage = image::open(format!("samples/{name}.png")).unwrap();
