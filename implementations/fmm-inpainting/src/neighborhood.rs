@@ -1,6 +1,6 @@
 use super::def::Point;
 
-pub fn get_neighbors_4(pos: Point<i32>) -> [Point<i32>; 4] {
+pub fn get_connectivity_4(pos: Point<i32>) -> [Point<i32>; 4] {
     [
         Point::<i32>::new(pos.x - 1, pos.y),
         Point::<i32>::new(pos.x, pos.y - 1),

@@ -1,8 +1,8 @@
-use super::neighborhood::{get_neighbors_4, get_neighbors_n};
 use super::def::{get_mat, Distances, Heap, Point, State, States, DIST_MAX};
+use super::neighborhood::{get_connectivity_4, get_neighbors_n};
 use image::{self, DynamicImage, GenericImage, GenericImageView, Pixel, Rgba};
 
-pub fn get_initial_conditions(mask: &DynamicImage) -> (Distances, States, Heap) {
+pub fn get_initial_conditions(inpaint_mask: &DynamicImage) -> (Distances, States, Heap) {
     /*
     Parameters
     ----------
@@ -25,44 +25,135 @@ pub fn get_initial_conditions(mask: &DynamicImage) -> (Distances, States, Heap) 
         border of the mask.
      */
 
-    let (width, height) = (mask.dimensions().0 as i32, mask.dimensions().1 as i32);
+    let (width, height) = (
+        inpaint_mask.dimensions().0 as i32,
+        inpaint_mask.dimensions().1 as i32,
+    );
+    let ecols = (width + 2) as usize;
+    let erows = (height + 2) as usize;
+    let mut distances: Distances = get_mat(ecols, erows, DIST_MAX);
+    let mut mask: States = get_mat(ecols, erows, State::Known);
+    let mut states: States = get_mat(ecols, erows, State::Known);
+    let mut band: States = get_mat(ecols, erows, State::Known);
 
-    let mut distances: Distances = get_mat(width as usize, height as usize, DIST_MAX);
-    let mut states: States = get_mat(width as usize, height as usize, State::Known);
     let mut heap: Heap = Heap::new();
 
-    mask.pixels()
+    inpaint_mask
+        .pixels()
         .filter(|(i, j, pixel)| {
             pixel.channels()[0] != 0
-              //  keep borders as known
-              && *i < width as u32 - 1
-              && *j < height as u32 - 1
-              && *i > 0
-              && *j > 0
+            //  keep borders as known
+            //   && *i < width as u32 - 1
+            //   && *j < height as u32 - 1
+            //   && *i > 0
+            //   && *j > 0
         })
         .for_each(|(x, y, _)| {
-            states[x as usize][y as usize] = State::Unknown;
+            mask[(x + 1) as usize][(y + 1) as usize] = State::Unknown;
 
-            let neighbors = get_neighbors_4(Point::<i32>::new(x as i32, y as i32));
+            // let neighbors = get_connectivity_4(Point::<i32>::new(x as i32, y as i32));
 
-            for nb in neighbors {
-                if nb.x < (width - 1) && nb.y < (height - 1) && nb.x > 0 && nb.y > 0 {
-                    let state = &mut states[nb.x as usize][nb.y as usize];
-                    let pixel_is_zero = mask.get_pixel(nb.x as u32, nb.y as u32).channels()[0] == 0;
+            // for nb in neighbors {
+            //     if nb.x < (width - 1) && nb.y < (height - 1) && nb.x > 0 && nb.y > 0 {
+            //         let state = &mut states[nb.x as usize][nb.y as usize];
+            //         let pixel_is_zero = mask.get_pixel(nb.x as u32, nb.y as u32).channels()[0] == 0;
 
-                    if pixel_is_zero && !state.is_band() {
-                        *state = State::Band;
-                        distances[nb.x as usize][nb.y as usize] = 0.0;
-                        heap.push(0.0, nb);
+            //         if pixel_is_zero && !state.is_band() {
+            //             *state = State::Band;
+            //             distances[nb.x as usize][nb.y as usize] = 0.0;
+            //             heap.push(0.0, nb);
+            //         }
+            //     }
+            // }
+        });
+
+    // mark borders as known
+    for j in 0..height {
+        mask[0][j as usize] = State::Known;
+    }
+
+    for i in 1..(width - 1) {
+        mask[i as usize][0] = State::Known;
+        mask[i as usize][height as usize - 1] = State::Known;
+    }
+
+    for j in 0..height {
+        mask[width as usize - 1][j as usize] = State::Known;
+    }
+
+    // dilate pixels of mask in "Band" (Cross structuring element)
+    mask.iter()
+        .enumerate()
+        .filter(|(_, row)| row.iter().any(|state| state.is_band()))
+        .for_each(|(i, row)| {
+            row.iter()
+                .enumerate()
+                .filter(|(_, state)| state.is_band())
+                .for_each(|(j, _)| {
+                    let neighbors = get_connectivity_4(Point::<i32>::new(i as i32, j as i32));
+
+                    for nb in neighbors {
+                        band[nb.x as usize][nb.y as usize] = State::Unknown;
                     }
-                }
-            }
+                });
+        });
+
+    // reset all elements in "band" to "known", where the mask is not 0
+    mask.iter()
+        .enumerate()
+        .filter(|(_, row)| row.iter().any(|state| state.is_unknown()))
+        .for_each(|(i, row)| {
+            row.iter()
+                .enumerate()
+                .filter(|(_, state)| state.is_unknown())
+                .for_each(|(j, _)| {
+                    band[i][j] = State::Known;
+                });
+        });
+
+    // add all "is_unknown" elements in "band" to the heap
+    band.iter()
+        .enumerate()
+        .filter(|(_, row)| row.iter().any(|state| state.is_unknown()))
+        .for_each(|(i, row)| {
+            row.iter()
+                .enumerate()
+                .filter(|(_, state)| state.is_unknown())
+                .for_each(|(j, _)| {
+                    heap.push(0.0, Point::<i32>::new(i as i32, j as i32));
+                });
+        });
+
+    // set states to "band" where "band" is "unknown"
+    band.iter()
+        .enumerate()
+        .filter(|(_, row)| row.iter().any(|state| state.is_unknown()))
+        .for_each(|(i, row)| {
+            row.iter()
+                .enumerate()
+                .filter(|(_, state)| state.is_unknown())
+                .for_each(|(j, _)| {
+                    states[i][j] = State::Band;
+                    distances[i][j] = 0.0;
+                });
+        });
+
+    mask.iter()
+        .enumerate()
+        .filter(|(_, row)| row.iter().any(|state| state.is_unknown()))
+        .for_each(|(i, row)| {
+            row.iter()
+                .enumerate()
+                .filter(|(_, state)| state.is_unknown())
+                .for_each(|(j, _)| {
+                    states[i][j] = State::Unknown;
+                });
         });
 
     (distances, states, heap)
 }
 
-pub fn get_telea_distances(mask: &DynamicImage, dist: &mut Distances, states: &States, radius: u8) {
+pub fn telea_distances(mask: &DynamicImage, dist: &mut Distances, states: &States, radius: u8) {
     let (width, height) = (dist.len() as i32, dist[0].len() as i32);
 
     let mut heap = Heap::new();
@@ -103,7 +194,7 @@ pub fn get_telea_distances(mask: &DynamicImage, dist: &mut Distances, states: &S
     while let Some((_, pos)) = heap.pop() {
         new_states[pos.x as usize][pos.y as usize] = State::Change;
 
-        let neighbors = get_neighbors_4(pos);
+        let neighbors = get_connectivity_4(pos);
         for nb in neighbors {
             if nb.x < width - 1
                 && nb.y < height - 1
@@ -187,14 +278,14 @@ pub fn telea_pixel(
     let mut j_y = [0.0; 3];
     let mut i_a = [0.0; 3];
     let mut s = [f64::EPSILON; 3];
-    let (mut weight, mut dist_factor, mut level_factor, mut vec_factor);
+    let (mut weight, mut dist_factor, mut level_factor, mut vec_factor) = (0.0, 0.0, 0.0, 0.0);
 
     for k in i - radius..=i + radius {
         for l in j - radius..=j + radius {
-            let km = (k - 1 + (k == 1) as i32) as u32;
-            let kp = (k - 1 - (k == (width - 2)) as i32) as u32;
-            let lm = (l - 1 + (l == 1) as i32) as u32;
-            let lp = (l - 1 - (l == (height - 2)) as i32) as u32;
+            let k_start = (k - 1 + (k == 1) as i32) as u32;
+            let k_end = (k - 1 - (k == (width - 2)) as i32) as u32;
+            let l_start = (l - 1 + (l == 1) as i32) as u32;
+            let l_end = (l - 1 - (l == (height - 2)) as i32) as u32;
 
             if k > 0
                 && l > 0
@@ -203,7 +294,8 @@ pub fn telea_pixel(
                 && !states[k as usize][l as usize].is_unknown()
                 && ((k - i).pow(2) + (l - j).pow(2)) <= radius.pow(2)
             {
-                for color in 0..3 {
+                // for color in 0..3 {
+                ["R", "G", "B"].iter().enumerate().for_each(|(color, _)| {
                     r.x = (j - l).into();
                     r.y = (i - k).into();
 
@@ -227,18 +319,18 @@ pub fn telea_pixel(
                     grad_i.x = match (s_next_l, s_prev_l) {
                         (State::Unknown, State::Unknown) => 0.0,
                         (_, State::Unknown) => {
-                            let p1 = pixel_ch(img, km, lp + 1, color);
-                            let p2 = pixel_ch(img, km, lm, color);
+                            let p1 = pixel_ch(img, k_start, l_end + 1, color);
+                            let p2 = pixel_ch(img, k_start, l_start, color);
                             p1 - p2
                         }
                         (State::Unknown, _) => {
-                            let p1 = pixel_ch(img, km, lp, color);
-                            let p2 = pixel_ch(img, km, lm - 1, color);
+                            let p1 = pixel_ch(img, k_start, l_end, color);
+                            let p2 = pixel_ch(img, k_start, l_start - 1, color);
                             p1 - p2
                         }
                         (_, _) => {
-                            let p1 = pixel_ch(img, km, lp + 1, color);
-                            let p2 = pixel_ch(img, km, lm - 1, color);
+                            let p1 = pixel_ch(img, k_start, l_end + 1, color);
+                            let p2 = pixel_ch(img, k_start, l_start - 1, color);
                             2.0 * (p1 - p2)
                         }
                     };
@@ -249,44 +341,44 @@ pub fn telea_pixel(
                     ) {
                         (State::Unknown, State::Unknown) => 0.0,
                         (_, State::Unknown) => {
-                            let p1 = pixel_ch(img, kp + 1, lm, color);
-                            let p2 = pixel_ch(img, km, lm, color);
+                            let p1 = pixel_ch(img, k_end + 1, l_start, color);
+                            let p2 = pixel_ch(img, k_start, l_start, color);
                             p1 - p2
                         }
                         (State::Unknown, _) => {
-                            let p1 = pixel_ch(img, kp, lm, color);
-                            let p2 = pixel_ch(img, km - 1, lm, color);
+                            let p1 = pixel_ch(img, k_end, l_start, color);
+                            let p2 = pixel_ch(img, k_start - 1, l_start, color);
                             p1 - p2
                         }
                         (_, _) => {
-                            let p1 = pixel_ch(img, kp + 1, lm, color);
-                            let p2 = pixel_ch(img, km - 1, lm, color);
+                            let p1 = pixel_ch(img, k_end + 1, l_start, color);
+                            let p2 = pixel_ch(img, k_start - 1, l_start, color);
                             2.0 * (p1 - p2)
                         }
                     };
 
-                    let p = pixel_ch(img, km, lm, color);
+                    let p = pixel_ch(img, k_start, l_start, color);
                     i_a[color] += p * weight;
                     j_x[color] -= weight * grad_i.x * r.x;
                     j_y[color] -= weight * grad_i.y * r.y;
                     s[color] += weight;
-                }
+                })
             }
         }
     }
-    let mut sat: [f64; 3] = [0.0; 3];
+    let mut saturation: [f64; 3] = [0.0; 3];
 
     for color in 0..3 {
-        sat[color] = i_a[color] / s[color]
+        saturation[color] = i_a[color] / s[color]
             + (j_x[color] + j_y[color])
                 / ((j_x[color] * j_x[color] + j_y[color] * j_y[color]).sqrt() + f64::EPSILON)
             + 0.5;
     }
 
     let rgb = Rgba([
-        (sat[0].round().min(255.0).max(0.0)) as u8,
-        (sat[1].round().min(255.0).max(0.0)) as u8,
-        (sat[2].round().min(255.0).max(0.0)) as u8,
+        (saturation[0].round().min(255.0).max(0.0)) as u8,
+        (saturation[1].round().min(255.0).max(0.0)) as u8,
+        (saturation[2].round().min(255.0).max(0.0)) as u8,
         255,
     ]);
 
@@ -301,7 +393,6 @@ pub fn bertalmio_pixel(img: &mut DynamicImage, i: i32, j: i32, states: &States, 
     let (width, height) = (img.width() as i32, img.height() as i32);
     let mut ia: [f64; 3] = [0.0; 3];
     let mut sum = [f64::EPSILON; 3];
-    // let (mut w, mut dst, mut dir): (f64, f64, f64);
     let mut grad_i: Point<f64> = Point::<f64>::new(0.0, 0.0);
     let mut r: Point<f64> = Point::<f64>::new(0.0, 0.0);
 
@@ -449,11 +540,11 @@ pub fn apply_telea2004(
     let mut result = img.clone();
 
     let (mut distances, mut states, mut heap) = get_initial_conditions(mask);
-    get_telea_distances(mask, &mut distances, &states, radius);
+    telea_distances(mask, &mut distances, &states, radius);
 
     while let Some((_, p)) = heap.pop() {
         states[p.x as usize][p.y as usize] = State::Known;
-        let neighbors = get_neighbors_4(p);
+        let neighbors = get_connectivity_4(p);
 
         for nb in neighbors {
             if nb.x < width - 1
@@ -486,14 +577,17 @@ pub fn apply_bertalmio2001(
     }
 
     let mut result = img.clone();
+    let mut red_background = image::RgbaImage::new(width as u32, height as u32);
+    red_background.enumerate_pixels_mut().for_each(|(_, _, p)| {
+        *p = image::Rgba([255, 0, 0, 255]);
+    });
 
     let (mut distances, mut states, mut heap) = get_initial_conditions(mask);
 
     while let Some((_, p)) = heap.pop() {
         states[p.x as usize][p.y as usize] = State::Known;
-        let neighbors = get_neighbors_4(p);
 
-        for nb in neighbors {
+        for nb in get_connectivity_4(p) {
             if nb.x > 0
                 && nb.y > 0
                 && nb.x < width
