@@ -2,15 +2,12 @@ mod def;
 mod inpainting;
 mod neighborhood;
 use image::DynamicImage;
-use inpainting::{apply_bertalmio2001, apply_telea2004};
-// use std::env;
+use inpainting::{bertalmio2001, telea2004};
 
 fn main() {
-    // env::set_var("RUST_BACKTRACE", "1");
-    // env::set_var("RUST_BACKTRACE", "full");
     let radius = 5;
 
-    let names = ["becelli", "text-horse"];
+    let names = ["becelli", "bricks", "text-horse"];
 
     for name in names.iter() {
         // try open jpg, if not, try bmp
@@ -26,19 +23,19 @@ fn main() {
             });
 
         let start = std::time::Instant::now();
-        let result = apply_telea2004(&img, &mask, radius).unwrap();
+        let result_telea = telea2004(&img, &mask, radius).unwrap();
         let elapsed = start.elapsed().as_millis();
         println!("Telea done on {name} in {}ms", elapsed, name = name);
 
         let start = std::time::Instant::now();
-        let result2 = apply_bertalmio2001(&img, &mask, radius).unwrap();
+        let result_bertalmio = bertalmio2001(&img, &mask, radius).unwrap();
         let elapsed = start.elapsed().as_millis();
         println!("Bertalmio done on {name} in {}ms", elapsed, name = name);
 
-        result
+        result_telea
             .save(format!("samples/result/{name}_telea.bmp"))
             .unwrap();
-        result2
+        result_bertalmio
             .save(format!("samples/result/{name}_bertalmio.bmp"))
             .unwrap();
     }
