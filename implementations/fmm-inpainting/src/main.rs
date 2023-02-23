@@ -5,7 +5,7 @@ use image::DynamicImage;
 use inpainting::{bertalmio2001, telea2004};
 
 fn main() {
-    let radius = 5;
+    let radius = 7;
 
     let names = ["becelli", "bricks", "text-horse"];
 

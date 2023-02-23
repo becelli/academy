@@ -1,5 +1,5 @@
 use super::def::{get_mat, Distances, Heap, Point, State, States, DIST_MAX};
-use super::neighborhood::{get_connectivity_4, get_neighbors_n};
+use super::neighborhood::{get_connectivity_4, get_connectivity_n};
 use image::{self, DynamicImage, GenericImage, GenericImageView, Pixel, Rgba};
 
 fn get_initial_conditions(mask: &DynamicImage) -> (Distances, States, Heap) {
@@ -33,46 +33,38 @@ fn get_initial_conditions(mask: &DynamicImage) -> (Distances, States, Heap) {
 }
 
 // TODO: Fix this function
-fn telea_distances(mask: &DynamicImage, dist: &mut Distances, states: &States, radius: u8) {
+fn telea_distances(dist: &mut Distances, states: &States, heap: &Heap, radius: u8) {
     let (width, height) = (dist.len() as i32, dist[0].len() as i32);
 
-    let mut heap = Heap::new();
-    let mut new_states = states.clone();
+    let mut aux_heap = heap.clone();
+    let mut aux_states = states.clone();
 
-    mask.pixels()
-        .filter(|(i, j, pixel)| {
-            pixel.channels()[0] != 0
-              //  keep borders as known
-              && *i < width as u32 - 1
-              && *j < height as u32 - 1
-              && *i > 0
-              && *j > 0
-        })
-        .for_each(|(x, y, _)| {
-            // dilate with disk structuring element of (2 * radius + 1), marking as band
-            let neighbors = get_neighbors_n(Point::<i32>::new(x as i32, y as i32), radius as i32);
+    states.iter().enumerate().for_each(|(i, row)| {
+        row.iter()
+            .enumerate()
+            .filter(|(_, state)| state.is_unknown())
+            .for_each(|(j, _)| {
+                let neighbors =
+                    get_connectivity_n(Point::<i32>::new(i as i32, j as i32), radius as i32);
 
-            for nb in neighbors {
-                if nb.x < (width - 1) && nb.y < (height - 1) && nb.x > 0 && nb.y > 0 {
-                    let state = &mut new_states[nb.x as usize][nb.y as usize];
-                    let pixel_is_not_mask =
-                        mask.get_pixel(nb.x as u32, nb.y as u32).channels()[0] == 0;
-
-                    if pixel_is_not_mask && !state.is_band() {
-                        // todo: check if this is correct
-                        *state = State::Change;
+                for nb in neighbors {
+                    if nb.x < width - 1
+                    && nb.y < height - 1
+                    && nb.x > 0
+                    && nb.y > 0
+                    // && !aux_states[nb.x as usize][nb.y as usize].is_unknown()
+                    // && !aux_states[nb.x as usize][nb.y as usize].is_band()
+                    && aux_states[nb.x as usize][nb.y as usize].is_known()
+                    {
+                        aux_states[nb.x as usize][nb.y as usize] = State::Change;
                         dist[nb.x as usize][nb.y as usize] = DIST_MAX;
-                        heap.push(DIST_MAX, nb);
-                    } else if pixel_is_not_mask && state.is_band() {
-                        dist[nb.x as usize][nb.y as usize] = 0.0;
-                        heap.push(0.0, nb);
                     }
                 }
-            }
-        });
+            });
+    });
 
-    while let Some((_, pos)) = heap.pop() {
-        new_states[pos.x as usize][pos.y as usize] = State::Change;
+    while let Some((_, pos)) = aux_heap.pop() {
+        aux_states[pos.x as usize][pos.y as usize] = State::Change;
 
         let neighbors = get_connectivity_4(pos);
         for nb in neighbors {
@@ -80,26 +72,25 @@ fn telea_distances(mask: &DynamicImage, dist: &mut Distances, states: &States, r
                 && nb.y < height - 1
                 && nb.x > 0
                 && nb.y > 0
-                && new_states[nb.x as usize][nb.y as usize].is_unknown()
+                && aux_states[nb.x as usize][nb.y as usize].is_unknown()
             {
-                let min = solve_fmm(&nb, dist, &new_states);
+                let min_dist = solve_fmm(&nb, dist, &aux_states);
 
-                dist[nb.x as usize][nb.y as usize] = min;
-                new_states[nb.x as usize][nb.y as usize] = State::Band;
-                heap.push(min, nb);
+                dist[nb.x as usize][nb.y as usize] = min_dist;
+                aux_states[nb.x as usize][nb.y as usize] = State::Band;
+                aux_heap.push(min_dist, nb);
             }
         }
     }
 
-    for i in 0..width as usize {
-        for j in 0..height as usize {
-            if new_states[i][j].is_change() {
-                // remove this
-                // states[i][j] = State::Known;
+    aux_states.iter().enumerate().for_each(|(i, row)| {
+        row.iter()
+            .enumerate()
+            .filter(|(_, state)| state.is_change())
+            .for_each(|(j, _)| {
                 dist[i][j] *= -1.0;
-            }
-        }
-    }
+            });
+    });
 }
 
 fn solve_eikonal(
@@ -244,6 +235,16 @@ fn telea_pixel(
     img.put_pixel((i - 1) as u32, (j - 1) as u32, color);
 }
 
+fn solve_fmm(nb: &Point<i32>, distances: &Distances, states: &States) -> f64 {
+    let (x, y) = (nb.x as usize, nb.y as usize);
+    let p1 = solve_eikonal(x - 1, y, x, y - 1, distances, states);
+    let p2 = solve_eikonal(x + 1, y, x, y + 1, distances, states);
+    let p3 = solve_eikonal(x - 1, y, x, y + 1, distances, states);
+    let p4 = solve_eikonal(x + 1, y, x, y - 1, distances, states);
+
+    p1.min(p2).min(p3).min(p4)
+}
+
 fn telea_color(ia: [f64; 3], s: [f64; 3], jx: [f64; 3], jy: [f64; 3]) -> Rgba<u8> {
     let mut color: [u8; 4] = [255; 4];
 
@@ -263,8 +264,15 @@ fn telea_color(ia: [f64; 3], s: [f64; 3], jx: [f64; 3], jy: [f64; 3]) -> Rgba<u8
 fn pixel_ch(img: &DynamicImage, i: u32, j: u32, ch: usize) -> f64 {
     img.get_pixel(i, j).channels()[ch] as f64
 }
-
-fn bertalmio_pixel(img: &mut DynamicImage, i: i32, j: i32, states: &States, radius: i32) {
+#[allow(unused_variables)]
+fn bertalmio_pixel(
+    img: &mut DynamicImage,
+    i: i32,
+    j: i32,
+    distances: &Distances,
+    states: &States,
+    radius: i32,
+) {
     let (width, height) = (img.width() as i32, img.height() as i32);
     let mut ia: [f64; 3] = [0.0; 3];
     let mut sum = [f64::EPSILON; 3];
@@ -385,20 +393,16 @@ fn get_pixel_gradient(dist: &Distances, i: usize, j: usize, states: &States) -> 
     gradient
 }
 
-fn solve_fmm(nb: &Point<i32>, distances: &Distances, states: &States) -> f64 {
-    let (x, y) = (nb.x as usize, nb.y as usize);
-    let p1 = solve_eikonal(x - 1, y, x, y - 1, distances, states);
-    let p2 = solve_eikonal(x + 1, y, x, y + 1, distances, states);
-    let p3 = solve_eikonal(x - 1, y, x, y + 1, distances, states);
-    let p4 = solve_eikonal(x + 1, y, x, y - 1, distances, states);
-
-    p1.min(p2).min(p3).min(p4)
+enum InpaintMethod {
+    NavierStokes,
+    Telea,
 }
 
-pub fn telea2004(
+fn inpaint(
     img: &DynamicImage,
     mask: &DynamicImage,
     radius: u8,
+    method: InpaintMethod,
 ) -> Result<DynamicImage, String> {
     let (width, height) = (img.width() as i32, img.height() as i32);
 
@@ -410,7 +414,14 @@ pub fn telea2004(
 
     let (mut distances, mut states, mut heap) = get_initial_conditions(mask);
 
-    // telea_distances(mask, &mut distances, &states, radius);
+    if let InpaintMethod::NavierStokes = method {
+        telea_distances(&mut distances, &states, &heap, radius);
+    }
+
+    let inpaint_pixel = match method {
+        InpaintMethod::NavierStokes => bertalmio_pixel,
+        InpaintMethod::Telea => telea_pixel,
+    };
 
     while let Some((_, p)) = heap.pop() {
         states[p.x as usize][p.y as usize] = State::Known;
@@ -425,7 +436,7 @@ pub fn telea2004(
             {
                 let min_dist = solve_fmm(&nb, &distances, &states);
                 distances[nb.x as usize][nb.y as usize] = min_dist;
-                telea_pixel(&mut result, nb.x, nb.y, &distances, &states, radius as i32);
+                inpaint_pixel(&mut result, nb.x, nb.y, &distances, &states, radius as i32);
                 states[nb.x as usize][nb.y as usize] = State::Band;
                 heap.push(min_dist, nb);
             }
@@ -440,35 +451,13 @@ pub fn bertalmio2001(
     mask: &DynamicImage,
     radius: u8,
 ) -> Result<DynamicImage, String> {
-    let (width, height) = (img.width() as i32, img.height() as i32);
+    inpaint(img, mask, radius, InpaintMethod::NavierStokes)
+}
 
-    if width != mask.width() as i32 || height != mask.height() as i32 {
-        return Err("Image and mask must have the same dimensions".to_string());
-    }
-
-    let mut result = img.clone();
-
-    let (mut distances, mut states, mut heap) = get_initial_conditions(mask);
-
-    while let Some((_, p)) = heap.pop() {
-        states[p.x as usize][p.y as usize] = State::Known;
-
-        for nb in get_connectivity_4(p) {
-            if nb.x > 0
-                && nb.y > 0
-                && nb.x < width
-                && nb.y < height
-                && states[nb.x as usize][nb.y as usize].is_unknown()
-            {
-                let min_dist = solve_fmm(&nb, &distances, &states);
-
-                distances[nb.x as usize][nb.y as usize] = min_dist;
-                bertalmio_pixel(&mut result, nb.x, nb.y, &states, radius as i32);
-                states[nb.x as usize][nb.y as usize] = State::Band;
-                heap.push(min_dist, nb);
-            }
-        }
-    }
-
-    Ok(result)
+pub fn telea2004(
+    img: &DynamicImage,
+    mask: &DynamicImage,
+    radius: u8,
+) -> Result<DynamicImage, String> {
+    inpaint(img, mask, radius, InpaintMethod::Telea)
 }

@@ -9,7 +9,7 @@ pub fn get_connectivity_4(pos: Point<i32>) -> [Point<i32>; 4] {
     ]
 }
 
-pub fn get_neighbors_n(pos: Point<i32>, radius: i32) -> Vec<Point<i32>> {
+pub fn get_connectivity_n(pos: Point<i32>, radius: i32) -> Vec<Point<i32>> {
     // vec with capacity of 8 * radius
     let mut neighbors = Vec::with_capacity((8 * radius) as usize);
 
