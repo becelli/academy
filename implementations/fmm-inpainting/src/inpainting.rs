@@ -2,33 +2,61 @@ use super::def::{get_mat, Distances, Heap, Point, State, States, DIST_MAX};
 use super::neighborhood::{get_connectivity_4, get_connectivity_n};
 use image::{self, DynamicImage, GenericImage, GenericImageView, Pixel, Rgba};
 
-fn get_initial_conditions(mask: &DynamicImage) -> (Distances, States, Heap) {
+/// Computes the initial conditions for the Fast Marching Method algorithm.
+///
+/// Given a binary mask image, this function initializes the distances and states matrices and the heap data structure
+/// used in the Fast Marching Method algorithm. The distances and states matrices are both 2D arrays with dimensions
+/// `w_2` by `h_2`, where `w_2` and `h_2` are the width and height of the mask image plus two (padding for border pixels).
+/// The heap data structure is used to store the points with their associated tentative distances.
+///
+/// # Arguments
+///
+/// * `mask` - A `DynamicImage` binary mask with white pixels representing the region of interest and black pixels
+/// representing the background.
+///
+/// # Returns
+///
+/// A tuple containing the initialized distances and states matrices and heap data structure.
+///
+pub fn get_initial_conditions(mask: &DynamicImage) -> (Distances, States, Heap) {
+    // Determine the width and height of the mask image
     let (width, height) = (mask.dimensions().0, mask.dimensions().1);
+    // Add padding to the width and height for the border pixels
+    let (w_2, h_2) = ((width + 2) as usize, (height + 2) as usize);
 
-    let mut distances: Distances = get_mat((width + 2) as usize, (height + 2) as usize, DIST_MAX);
-    let mut states: States = get_mat((width + 2) as usize, (height + 2) as usize, State::Known);
+    // Initialize the distances and states matrices and the heap data structure
+    let mut distances: Distances = get_mat(w_2, h_2, DIST_MAX);
+    let mut states: States = get_mat(w_2, h_2, State::Known);
     let mut heap: Heap = Heap::new();
 
+    // Iterate over all pixels in the mask image
     mask.pixels()
         .filter(|(i, j, pixel)| {
+            // Ignore the border pixels and black pixels (background)
             pixel.channels()[0] != 0 && *i > 0 && *j > 0 && *i < width - 1 && *j < height - 1
         })
         .for_each(|(x, y, _)| {
+            // Mark the corresponding pixel in the states matrix as unknown
             states[(x + 1) as usize][(y + 1) as usize] = State::Unknown;
 
+            // Compute the 4-neighborhood of the current pixel
             let neighbors = get_connectivity_4(Point::<i32>::new((x + 1) as i32, (y + 1) as i32));
 
+            // Iterate over the neighbors of the current pixel
             for nb in neighbors {
-                let state = &mut states[nb.x as usize][nb.y as usize];
+                let (nb_x, nb_y) = (nb.x as usize, nb.y as usize);
+                let state = &mut states[nb_x][nb_y];
 
+                // If the neighbor is not already known, mark it as a band point and initialize its distance to 0
                 if !state.is_unknown() {
                     *state = State::Band;
-                    distances[nb.x as usize][nb.y as usize] = 0.0;
+                    distances[nb_x][nb_y] = 0.0;
                     heap.push(0.0, nb);
                 }
             }
         });
 
+    // Return the initialized distances and states matrices and heap data structure
     (distances, states, heap)
 }
 
@@ -74,7 +102,7 @@ fn telea_distances(dist: &mut Distances, states: &States, heap: &Heap, radius: u
                 && nb.y > 0
                 && aux_states[nb.x as usize][nb.y as usize].is_unknown()
             {
-                let min_dist = solve_fmm(&nb, dist, &aux_states);
+                let min_dist = solve_fast_marching_method(&nb, dist, &aux_states);
 
                 dist[nb.x as usize][nb.y as usize] = min_dist;
                 aux_states[nb.x as usize][nb.y as usize] = State::Band;
@@ -93,16 +121,34 @@ fn telea_distances(dist: &mut Distances, states: &States, heap: &Heap, radius: u
     });
 }
 
-fn solve_eikonal(
+/// This function solves the eikonal equation for two points.
+///
+/// The eikonal equation determines the distance between two points in a field
+/// given a known speed function. In this case, the distance is the Euclidean
+/// distance and the speed function is the distance to the nearest boundary.
+///
+/// # Arguments
+///
+/// * `x1`: x-coordinate of the first point.
+/// * `y1`: y-coordinate of the first point.
+/// * `x2`: x-coordinate of the second point.
+/// * `y2`: y-coordinate of the second point.
+/// * `distances`: distance matrix.
+/// * `states`: state matrix.
+///
+/// # Returns
+///
+/// The solution of the eikonal equation for the two points.
+fn solve_eikonal_eq(
     x1: usize,
     y1: usize,
     x2: usize,
     y2: usize,
-    dist: &Distances,
+    distances: &Distances,
     states: &States,
 ) -> f64 {
-    let dist1 = dist[x1][y1];
-    let dist2 = dist[x2][y2];
+    let dist1 = distances[x1][y1];
+    let dist2 = distances[x2][y2];
     let dist_min = dist1.min(dist2);
     let dist_sub = (dist1 - dist2).abs();
 
@@ -119,7 +165,18 @@ fn solve_eikonal(
     solution
 }
 
-fn telea_pixel(
+/// Computes the color for a pixel using the Telea algorithm.
+///
+/// # Arguments
+///
+/// * `img`: a mutable reference to the input image.
+/// * `i`: the vertical coordinate of the pixel to be processed.
+/// * `j`: the horizontal coordinate of the pixel to be processed.
+/// * `distances`: a 2D array of distances used to weight the contributions of nearby pixels.
+/// * `states`: a 2D array indicating whether pixels are known, unknown, or have been filled.
+/// * `radius`: the radius of the search window for nearby pixels.
+///
+fn telea_inpaint_pixel(
     img: &mut DynamicImage,
     i: i32,
     j: i32,
@@ -127,24 +184,32 @@ fn telea_pixel(
     states: &States,
     radius: i32,
 ) {
+    // Calculate image dimensions
+
     let (width, height) = (img.width() as i32, img.height() as i32);
+
+    // Get the gradient of the current pixel
 
     let pixel_gradient = get_pixel_gradient(distances, i as usize, j as usize, states);
 
-    let mut r: Point<f64> = Point::<f64>::new(0.0, 0.0);
-    let mut grad_i: Point<f64> = Point::<f64>::new(0.0, 0.0);
-    let mut jx = [0.0; 3];
-    let mut jy = [0.0; 3];
-    let mut ia = [0.0; 3];
-    let mut s = [f64::EPSILON; 3];
+    // Initialize variables
+    let mut pixel_offset: Point<f64> = Point::<f64>::new(0.0, 0.0);
+    let mut color_gradient: Point<f64> = Point::<f64>::new(0.0, 0.0);
+    let mut x_gradient = [0.0; 3];
+    let mut y_gradient = [0.0; 3];
+    let mut source_color = [0.0; 3];
+    let mut smoothness = [f64::EPSILON; 3];
     let (mut weight, mut dist_factor, mut level_factor, mut vec_factor) = (0.0, 0.0, 0.0, 0.0);
 
+    // Iterate over nearby pixels
     for k in i - radius..=i + radius {
         for l in j - radius..=j + radius {
             let k_start = (k - 1 + i32::from(k == 1)) as u32;
             let k_end = (k - 1 - i32::from(k == width - 2)) as u32;
             let l_start = (l - 1 + i32::from(l == 1)) as u32;
             let l_end = (l - 1 - i32::from(l == height - 2)) as u32;
+
+            // If the pixel is within the image bounds and has a known state
 
             if k > 0
                 && l > 0
@@ -153,12 +218,12 @@ fn telea_pixel(
                 && !states[k as usize][l as usize].is_unknown()
                 && ((k - i).pow(2) + (l - j).pow(2)) <= radius.pow(2)
             {
-                // for color in 0..3 {
+                // Iterate over each color channel
                 ["R", "G", "B"].iter().enumerate().for_each(|(color, _)| {
-                    r.x = (j - l).into();
-                    r.y = (i - k).into();
+                    pixel_offset.x = (j - l).into();
+                    pixel_offset.y = (i - k).into();
 
-                    let vec_len = r.len();
+                    let vec_len = pixel_offset.len();
 
                     dist_factor = 1.0 / (vec_len * vec_len.sqrt());
 
@@ -168,7 +233,7 @@ fn telea_pixel(
                                 - distances[i as usize][j as usize])
                                 .abs());
 
-                    vec_factor = r.dot(&pixel_gradient[color]);
+                    vec_factor = pixel_offset.dot(&pixel_gradient[color]);
 
                     if vec_factor.abs() <= 1e-2 {
                         vec_factor = 1e-6;
@@ -179,91 +244,147 @@ fn telea_pixel(
                     let s_next_l = states[k as usize][(l + 1) as usize];
                     let s_prev_l = states[k as usize][(l - 1) as usize];
 
-                    grad_i.x = match (s_next_l, s_prev_l) {
+                    color_gradient.x = match (s_next_l, s_prev_l) {
                         (State::Unknown, State::Unknown) => 0.0,
                         (_, State::Unknown) => {
-                            let p1 = pixel_ch(img, k_start, l_end + 1, color);
-                            let p2 = pixel_ch(img, k_start, l_start, color);
+                            let p1 = get_channel_value(img, k_start, l_end + 1, color);
+                            let p2 = get_channel_value(img, k_start, l_start, color);
                             p1 - p2
                         }
                         (State::Unknown, _) => {
-                            let p1 = pixel_ch(img, k_start, l_end, color);
-                            let p2 = pixel_ch(img, k_start, l_start - 1, color);
+                            let p1 = get_channel_value(img, k_start, l_end, color);
+                            let p2 = get_channel_value(img, k_start, l_start - 1, color);
                             p1 - p2
                         }
                         (_, _) => {
-                            let p1 = pixel_ch(img, k_start, l_end + 1, color);
-                            let p2 = pixel_ch(img, k_start, l_start - 1, color);
+                            let p1 = get_channel_value(img, k_start, l_end + 1, color);
+                            let p2 = get_channel_value(img, k_start, l_start - 1, color);
                             2.0 * (p1 - p2)
                         }
                     };
 
-                    grad_i.y = match (
+                    color_gradient.y = match (
                         states[(k + 1) as usize][l as usize],
                         states[(k - 1) as usize][l as usize],
                     ) {
                         (State::Unknown, State::Unknown) => 0.0,
                         (_, State::Unknown) => {
-                            let p1 = pixel_ch(img, k_end + 1, l_start, color);
-                            let p2 = pixel_ch(img, k_start, l_start, color);
+                            let p1 = get_channel_value(img, k_end + 1, l_start, color);
+                            let p2 = get_channel_value(img, k_start, l_start, color);
                             p1 - p2
                         }
                         (State::Unknown, _) => {
-                            let p1 = pixel_ch(img, k_end, l_start, color);
-                            let p2 = pixel_ch(img, k_start - 1, l_start, color);
+                            let p1 = get_channel_value(img, k_end, l_start, color);
+                            let p2 = get_channel_value(img, k_start - 1, l_start, color);
                             p1 - p2
                         }
                         (_, _) => {
-                            let p1 = pixel_ch(img, k_end + 1, l_start, color);
-                            let p2 = pixel_ch(img, k_start - 1, l_start, color);
+                            let p1 = get_channel_value(img, k_end + 1, l_start, color);
+                            let p2 = get_channel_value(img, k_start - 1, l_start, color);
                             2.0 * (p1 - p2)
                         }
                     };
 
-                    let channel = pixel_ch(img, k_start, l_start, color);
-                    ia[color] += channel * weight;
-                    jx[color] -= weight * grad_i.x * r.x;
-                    jy[color] -= weight * grad_i.y * r.y;
-                    s[color] += weight;
+                    let channel = get_channel_value(img, k_start, l_start, color);
+                    source_color[color] += channel * weight;
+                    x_gradient[color] -= weight * color_gradient.x * pixel_offset.x;
+                    y_gradient[color] -= weight * color_gradient.y * pixel_offset.y;
+                    smoothness[color] += weight;
                 })
             }
         }
     }
 
-    let color = telea_color(ia, s, jx, jy);
+    let color = calculate_telea_color(source_color, smoothness, x_gradient, y_gradient);
 
     img.put_pixel((i - 1) as u32, (j - 1) as u32, color);
 }
 
-fn solve_fmm(nb: &Point<i32>, distances: &Distances, states: &States) -> f64 {
+/// Calculates the minimum cost to reach a point using the fast marching method.
+///
+/// # Arguments
+///
+/// * `nb` - A reference to a `Point<i32>` struct representing the point to reach.
+/// * `distances` - A reference to a `Distances` struct representing the distances to the starting point.
+/// * `states` - A reference to a `States` struct representing the states of the points (obstacle or not).
+///
+/// # Returns
+///
+/// The minimum cost to reach the point represented by `nb`.
+fn solve_fast_marching_method(nb: &Point<i32>, distances: &Distances, states: &States) -> f64 {
     let (x, y) = (nb.x as usize, nb.y as usize);
-    let p1 = solve_eikonal(x - 1, y, x, y - 1, distances, states);
-    let p2 = solve_eikonal(x + 1, y, x, y + 1, distances, states);
-    let p3 = solve_eikonal(x - 1, y, x, y + 1, distances, states);
-    let p4 = solve_eikonal(x + 1, y, x, y - 1, distances, states);
+    let p1 = solve_eikonal_eq(x - 1, y, x, y - 1, distances, states);
+    let p2 = solve_eikonal_eq(x + 1, y, x, y + 1, distances, states);
+    let p3 = solve_eikonal_eq(x - 1, y, x, y + 1, distances, states);
+    let p4 = solve_eikonal_eq(x + 1, y, x, y - 1, distances, states);
 
     p1.min(p2).min(p3).min(p4)
 }
 
-fn telea_color(ia: [f64; 3], s: [f64; 3], jx: [f64; 3], jy: [f64; 3]) -> Rgba<u8> {
-    let mut color: [u8; 4] = [255; 4];
+/// Calculates the color of a pixel in the output image using the method described in the Telea inpainting algorithm.
+///
+/// # Arguments:
+///
+/// * source_color: `[f64; 3]`: An array of three f64 values representing the color of the corresponding pixel in the input image.
+/// * smoothness: `[f64; 3]`: An array of three f64 values representing the smoothness of the corresponding pixel in the input image.
+/// * x_gradient: `[f64; 3]`: An array of three f64 values representing the horizontal gradient of the corresponding pixel in the input image.
+/// * y_gradient: `[f64; 3]`: An array of three f64 values representing the vertical gradient of the corresponding pixel in the input image.
+///
+/// # Returns:
+///
+/// Rgba<u8>: An Rgba struct representing the color of the pixel in the output image.
+fn calculate_telea_color(
+    source_color: [f64; 3],
+    smoothness: [f64; 3],
+    x_gradient: [f64; 3],
+    y_gradient: [f64; 3],
+) -> Rgba<u8> {
+    let mut result_color = [255u8; 4];
 
-    ["R", "G", "B"].iter().enumerate().for_each(|(channel, _)| {
-        let float = ia[channel] / s[channel]
-            + (jx[channel] + jy[channel])
-                / ((jx[channel] * jx[channel] + jy[channel] * jy[channel]).sqrt() + f64::EPSILON)
+    for channel in 0..3 {
+        let intermediate_value = source_color[channel] / smoothness[channel]
+            + (x_gradient[channel] + y_gradient[channel])
+                / ((x_gradient[channel] * x_gradient[channel]
+                    + y_gradient[channel] * y_gradient[channel])
+                    .sqrt()
+                    + f64::EPSILON)
             + 0.5;
 
-        color[channel] = float.round().max(0.0).min(255.0) as u8;
-    });
+        let clamped_value = intermediate_value.round().max(0.0).min(255.0) as u8;
+        result_color[channel] = clamped_value;
+    }
 
-    Rgba(color)
+    Rgba(result_color)
 }
 
+/// Returns the value of a specific color channel of a pixel in an image.
+///
+/// # Arguments
+///
+/// * `img` - A reference to a `DynamicImage` representing the image.
+/// * `i` - The x-coordinate of the pixel.
+/// * `j` - The y-coordinate of the pixel.
+/// * `ch` - The index of the color channel to retrieve.
+///
+/// # Returns
+///
+/// The value of the specified color channel of the pixel as a `f64`.
 #[inline]
-fn pixel_ch(img: &DynamicImage, i: u32, j: u32, ch: usize) -> f64 {
+fn get_channel_value(img: &DynamicImage, i: u32, j: u32, ch: usize) -> f64 {
     img.get_pixel(i, j).channels()[ch] as f64
 }
+
+/// Computes the color for a pixel using the Bertalmio inpainting algorithm.
+///
+/// # Arguments
+///
+/// * `img`: a mutable reference to the input image.
+/// * `i`: the vertical coordinate of the pixel to be processed.
+/// * `j`: the horizontal coordinate of the pixel to be processed.
+/// * `distances`: a 2D array of distances used to weight the contributions of nearby pixels.
+/// * `states`: a 2D array indicating whether pixels are known, unknown, or have been filled.
+/// * `radius`: the radius of the search window for nearby pixels.
+///
 #[allow(unused_variables)]
 fn bertalmio_pixel(
     img: &mut DynamicImage,
@@ -274,10 +395,10 @@ fn bertalmio_pixel(
     radius: i32,
 ) {
     let (width, height) = (img.width() as i32, img.height() as i32);
-    let mut ia: [f64; 3] = [0.0; 3];
+    let mut source_color: [f64; 3] = [0.0; 3];
     let mut sum = [f64::EPSILON; 3];
-    let mut grad_i: Point<f64> = Point::<f64>::new(0.0, 0.0);
-    let mut r: Point<f64> = Point::<f64>::new(0.0, 0.0);
+    let mut color_gradient: Point<f64> = Point::<f64>::new(0.0, 0.0);
+    let mut pixel_offset: Point<f64> = Point::<f64>::new(0.0, 0.0);
 
     for k in i - radius..=i + radius {
         for l in j - radius..=j + radius {
@@ -294,30 +415,30 @@ fn bertalmio_pixel(
                 && (l - j).pow(2) + (k - i).pow(2) <= radius.pow(2)
             {
                 for ch in 0..3 {
-                    r.x = (l - j) as f64;
-                    r.y = (k - i) as f64;
+                    pixel_offset.x = (l - j) as f64;
+                    pixel_offset.y = (k - i) as f64;
 
-                    let dist_factor = 1.0 / (r.len().powi(2) + 1.0);
+                    let dist_factor = 1.0 / (pixel_offset.len().powi(2) + 1.0);
 
                     let s_knext = states[(k + 1) as usize][l as usize];
                     let s_kprev = states[(k - 1) as usize][l as usize];
 
-                    grad_i.x = match (s_knext, s_kprev) {
+                    color_gradient.x = match (s_knext, s_kprev) {
                         (State::Unknown, State::Unknown) => 0.0,
                         (State::Unknown, _) => {
-                            let p1 = pixel_ch(img, k_end + 1, l_start, ch);
-                            let p2 = pixel_ch(img, k_end, l_start, ch);
+                            let p1 = get_channel_value(img, k_end + 1, l_start, ch);
+                            let p2 = get_channel_value(img, k_end, l_start, ch);
                             2.0 * (p1 - p2).abs()
                         }
                         (_, State::Unknown) => {
-                            let p1 = pixel_ch(img, k_end, l_start, ch);
-                            let p2 = pixel_ch(img, k_start - 1, l_start, ch);
+                            let p1 = get_channel_value(img, k_end, l_start, ch);
+                            let p2 = get_channel_value(img, k_start - 1, l_start, ch);
                             2.0 * (p1 - p2).abs()
                         }
                         (_, _) => {
-                            let p1 = pixel_ch(img, k_end + 1, l_start, ch);
-                            let p2 = pixel_ch(img, k_end, l_start, ch);
-                            let p3 = pixel_ch(img, k_start - 1, l_start, ch);
+                            let p1 = get_channel_value(img, k_end + 1, l_start, ch);
+                            let p2 = get_channel_value(img, k_end, l_start, ch);
+                            let p3 = get_channel_value(img, k_start - 1, l_start, ch);
                             (p1 - p2).abs() + (p2 - p3).abs()
                         }
                     };
@@ -325,37 +446,37 @@ fn bertalmio_pixel(
                     let s_lnext = states[k as usize][(l + 1) as usize];
                     let s_lprev = states[k as usize][(l - 1) as usize];
 
-                    grad_i.y = match (s_lnext, s_lprev) {
+                    color_gradient.y = match (s_lnext, s_lprev) {
                         (State::Unknown, State::Unknown) => 0.0,
                         (State::Unknown, _) => {
-                            let p1 = pixel_ch(img, k_start, l_end + 1, ch);
-                            let p2 = pixel_ch(img, k_start, l_start, ch);
+                            let p1 = get_channel_value(img, k_start, l_end + 1, ch);
+                            let p2 = get_channel_value(img, k_start, l_start, ch);
                             2.0 * (p1 - p2).abs()
                         }
                         (_, State::Unknown) => {
-                            let p1 = pixel_ch(img, k_start, l_start, ch);
-                            let p2 = pixel_ch(img, k_start, l_start - 1, ch);
+                            let p1 = get_channel_value(img, k_start, l_start, ch);
+                            let p2 = get_channel_value(img, k_start, l_start - 1, ch);
                             2.0 * (p1 - p2).abs()
                         }
                         (_, _) => {
-                            let p1 = pixel_ch(img, k_start, l_end + 1, ch);
-                            let p2 = pixel_ch(img, k_start, l_start, ch);
-                            let p3 = pixel_ch(img, k_start, l_start - 1, ch);
+                            let p1 = get_channel_value(img, k_start, l_end + 1, ch);
+                            let p2 = get_channel_value(img, k_start, l_start, ch);
+                            let p3 = get_channel_value(img, k_start, l_start - 1, ch);
                             (p1 - p2).abs() + (p2 - p3).abs()
                         }
                     };
 
-                    grad_i.x = -grad_i.x;
+                    color_gradient.x = -color_gradient.x;
 
-                    let aux = r.dot(&grad_i);
+                    let aux = pixel_offset.dot(&color_gradient);
 
                     let vec_factor = match aux.abs() <= 1e-2 {
                         true => 1e-6,
-                        false => (aux / (r.len() * grad_i.len()).sqrt()).abs(),
+                        false => (aux / (pixel_offset.len() * color_gradient.len()).sqrt()).abs(),
                     };
 
                     let weight = dist_factor * vec_factor;
-                    ia[ch] += weight * pixel_ch(img, k_start, l_start, ch);
+                    source_color[ch] += weight * get_channel_value(img, k_start, l_start, ch);
                     sum[ch] += weight;
                 }
             }
@@ -363,29 +484,53 @@ fn bertalmio_pixel(
     }
 
     let color: [u8; 4] = [
-        ((ia[0] / sum[0]).round() as u8).min(255).max(0),
-        ((ia[1] / sum[1]).round() as u8).min(255).max(0),
-        ((ia[2] / sum[2]).round() as u8).min(255).max(0),
+        ((source_color[0] / sum[0]).round() as u8).min(255).max(0),
+        ((source_color[1] / sum[1]).round() as u8).min(255).max(0),
+        ((source_color[2] / sum[2]).round() as u8).min(255).max(0),
         255,
     ];
     img.put_pixel((i - 1) as u32, (j - 1) as u32, Rgba(color));
 }
 
+/// Calculates the pixel gradient at position (i,j) using distance and state information
+///
+/// # Arguments
+///
+/// * `dist` - A reference to a `Distances` object containing the distance information
+/// * `i` - The row index of the pixel
+/// * `j` - The column index of the pixel
+/// * `states` - A reference to a `States` object containing the state information
+///
+/// # Returns
+///
+/// A `[Point<f64>; 3]` array containing the pixel gradient in x, y, and z directions
+///
 fn get_pixel_gradient(dist: &Distances, i: usize, j: usize, states: &States) -> [Point<f64>; 3] {
     let mut gradient: [Point<f64>; 3] = [Point::<f64>::new(0.0, 0.0); 3];
 
+    // Calculate the gradient for each channel (x and y)
     for channel in &mut gradient {
+        // Calculate the x-component of the gradient
         channel.x = match (states[i][j + 1], states[i][j - 1]) {
+            // Unknown on both sides
             (State::Unknown, State::Unknown) => 0.0,
+            // Unknown on left side only
             (State::Unknown, _) => dist[i][j] - dist[i][j - 1],
+            // Unknown on right side only
             (_, State::Unknown) => dist[i][j + 1] - dist[i][j],
+            // Known on both sides
             (_, _) => (dist[i][j + 1] - dist[i][j - 1]) * 0.5,
         };
 
+        // Calculate the y-component of the gradient
         channel.y = match (states[i + 1][j], states[i - 1][j]) {
+            // Unknown above and below
             (State::Unknown, State::Unknown) => 0.0,
+            // Unknown above
             (State::Unknown, _) => dist[i][j] - dist[i - 1][j],
+            // Unknown below
             (_, State::Unknown) => dist[i + 1][j] - dist[i][j],
+            // Known above and below
             (_, _) => (dist[i + 1][j] - dist[i - 1][j]) * 0.5,
         };
     }
@@ -420,7 +565,7 @@ fn inpaint(
 
     let inpaint_pixel = match method {
         InpaintMethod::NavierStokes => bertalmio_pixel,
-        InpaintMethod::Telea => telea_pixel,
+        InpaintMethod::Telea => telea_inpaint_pixel,
     };
 
     while let Some((_, p)) = heap.pop() {
@@ -434,7 +579,7 @@ fn inpaint(
                 && nb.y > 0
                 && states[nb.x as usize][nb.y as usize].is_unknown()
             {
-                let min_dist = solve_fmm(&nb, &distances, &states);
+                let min_dist = solve_fast_marching_method(&nb, &distances, &states);
                 distances[nb.x as usize][nb.y as usize] = min_dist;
                 inpaint_pixel(&mut result, nb.x, nb.y, &distances, &states, radius as i32);
                 states[nb.x as usize][nb.y as usize] = State::Band;
@@ -446,6 +591,16 @@ fn inpaint(
     Ok(result)
 }
 
+/// Applies the Bertalmio 2001 inpainting algorithm to the input image `img`,
+/// using the provided binary mask `mask` to identify the areas to be inpainted.
+///
+/// The `radius` parameter controls the size of the neighborhood used for the inpainting,
+/// and should be a non-negative integer.
+///
+/// # Returns
+///
+/// a new `DynamicImage` with the inpainted result on success, or an error message
+/// as a string if the inpainting fails.
 pub fn bertalmio2001(
     img: &DynamicImage,
     mask: &DynamicImage,
@@ -454,6 +609,14 @@ pub fn bertalmio2001(
     inpaint(img, mask, radius, InpaintMethod::NavierStokes)
 }
 
+/// Applies the Telea 2004 inpainting algorithm to the input image `img`,
+/// using the provided binary mask `mask` to identify the areas to be inpainted.
+///
+/// The `radius` parameter controls the size of the neighborhood used for the inpainting,
+/// and should be a non-negative integer.
+///
+/// Returns a new `DynamicImage` with the inpainted result on success, or an error message
+/// as a string if the inpainting fails.
 pub fn telea2004(
     img: &DynamicImage,
     mask: &DynamicImage,
