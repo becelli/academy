@@ -1,8 +1,8 @@
 mod def;
-mod inpainting;
+mod inpaint;
 mod neighborhood;
 use image::DynamicImage;
-use inpainting::{bertalmio2001, telea2004};
+use inpaint::{bertalmio2001, telea2004};
 
 fn main() {
     let radius = 7;
