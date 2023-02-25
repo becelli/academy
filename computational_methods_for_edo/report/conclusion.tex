@@ -1,0 +1,9 @@
+\section{Considerações Finais}\label{sec:conclusion}
+
+
+
+Este relatório apresentou a aplicação dos métodos computacionais de diferenças finitas e de Runge-Kutta para a análise temporal do crescimento de uma ou mais populações em um sistema fechado. Esses métodos oferecem uma alternativa vantajosa em relação à solução analítica, que nem sempre é conhecida ou de fácil cálculo.
+
+Para otimizar o desempenho dos algoritmos, foi necessário recorrer à biblioteca de compilação \emph{Just-In-Time} devido à quantidade de tempo necessária para computar os $N$ pontos de cada problema. Além disso, foi utilizada uma escolha particular para resolver a equação implícita do método de Euler Implícito, que aumentou drasticamente o tempo de execução do método. No entanto, se a equação implícita fosse resolvida antes da execução, o tempo gasto em um problema genérico se aproximaria do tempo do método de Euler Explícito. Como evidenciado pelos gráficos apresentados neste trabalho, o método de Euler Implícito é o que consome mais tempo para ser completamente executado.
+
+Em resumo, a aplicação dos métodos computacionais estudados neste trabalho permite o início de uma resolução de problemas complexos do mundo real, oferecendo uma alternativa eficiente e acessível para aproximar numericamente soluções que nem sempre são conhecidas ou de fácil cálculo.

@@ -1,0 +1,33 @@
+\citebrackets()
+\makenomenclature
+
+\renewcommand{\footnoterule}{
+\kern -3pt
+\hrule width 5cm
+\kern 2pt
+}
+
+\AtBeginDocument{
+    %Centralização do título sumário
+    \renewcommand\contentsname{\centering \normalsize \uppercase{Sumário}}
+    %Renomeação do título das siglas
+    \renewcommand{\nomname}{\centering \normalsize \uppercase{Siglas}} 
+    %Remoção do título referências
+    \renewcommand{\refname}{} 
+    %Renomeação do título da lista de figuras
+    \renewcommand{\listfigurename}{\centering \normalsize \uppercase{Lista de figuras}}
+    %Renomeação do título da lista de tabela
+    \renewcommand{\listtablename}{\centering \normalsize \uppercase{Lista de tabelas}}
+}
+
+\headheight=16pt
+\pagestyle{fancy}
+\fancyhf{}
+\fancyheadoffset{0cm}
+\renewcommand{\headrulewidth}{0pt} 
+\renewcommand{\footrulewidth}{0pt}
+\fancyhead[R]{\thepage}
+\fancypagestyle{plain}{
+  \fancyhf{}
+  \fancyhead[R]{\thepage}
+}

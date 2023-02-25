@@ -1,0 +1,259 @@
+\section{Formulação Numérica}\label{sec:formnumer}
+
+Nesta seção, são descritos os métodos numéricos utilizados para resolver equações diferenciais. Quando a solução analítica não é conhecida ou é muito complexa de ser resolvida, os métodos iterativos são uma alternativa para se obter uma solução aproximada. Para isso, a discretização do domínio é realizada, dividindo-o em uma malha fixa ou variável, dependendo do método utilizado.
+
+Vale ressaltar que, embora os métodos explícitos, como o de Euler Explícito, sejam computacionalmente mais eficientes, eles geralmente sofrem de maior instabilidade em problemas rígidos (\emph{stiff}), enquanto os métodos implícitos, como o de Euler Implícito, são mais estáveis em tais casos \cite{ascher2008numerical}. No entanto, este trabalho não abordará problemas rígidos.
+
+
+\subsection{Método de Diferenças Finitas e Polinômio de Taylor} \label{sec:finite_differences}
+
+O método de diferenças finitas consiste em discretizar o domínio do problema, gerando uma malha de pontos que será utilizada para aproximar a função original por meio da expansão do polinômio de Taylor. O polinômio de Taylor é uma série infinita que representa a função em torno de um ponto $x_0$, podendo ser truncado para viabilizar o cálculo computacionalmente.
+
+A expansão do polinômio de Taylor de ordem $n$ em relação a uma variável $h$ é dada por:
+
+\begin{equation*} \label{taylor}
+f(x+h)= f(x) + hf'(x) + \frac{h^2}{2!}f''(x)+...+ \frac{h^n}{n!}f^{(n)}(x) + \frac{h^{n+1}}{(n+1)!}f^{(n+1)}(x)
+\end{equation*}
+
+O erro global do polinômio de grau $n$ na variável $h$ é dado por $\frac{h^{n+1}}{(n+1)!}f^{(n+1)}(x)$. A ordem do erro é classificada conforme o expoente de $h$. É importante notar que, quanto menor for o valor de $h$, menor será o erro, e os métodos de maior ordem geralmente possuem maior precisão em comparação aos métodos de ordem inferior.
+
+O refinamento da malha é fundamental para o sucesso das aproximações, pois quanto menor for o incremento $h$, mais próximo será o valor estimado da diferenciação exata. Entretanto, é importante destacar que o processo de truncamento introduz pequenos erros no cálculo da aproximação, o que pode acumular e levar à não-convergência do método. Portanto, é crucial avaliar a ordem do método utilizado de acordo com o problema a ser resolvido e a tolerância de erro aceita.
+
+
+\subsubsection{Diferenças Avançadas}\label{sec:difavan}
+
+As diferenças avançadas recebem este nome pois aproximam a derivada do ponto $x_i$ por meio da diferenciação conforme um incremento de $h$, ou seja, calculando em um ponto adiante de $x_i$. Considerando a função $f(x)$, é possível aproximar sua derivada por meio de um desenvolvimento no polinômio de Taylor \cite{leveque2007finitediff}. Para $n=1$ e $x=x_i$ um ponto da malha, tem-se:
+
+\begin{equation*}
+f(x_i+h)= f(x_i)+ hf'(x_i) + \frac{h^2}{2!}f''(\xi)
+\end{equation*}
+
+com $\xi$ entre $x_i$ e $x_i + h$. Isolando $f'(x_i)$, obtemos:
+
+\begin{equation*}
+f'(x_i)= \frac{f(x_i+h)-f(x_i)}{h} + \frac{h}{2}f''(\xi)
+\end{equation*}
+
+ou
+
+\begin{equation*}
+f'(x_i)= \frac{f(x_i+h)-f(x_i)}{h} + O(h)
+\end{equation*}
+
+Observa-se que este processo define o método de diferenças avançadas, que aproxima a derivada computando o diferencial de $x_i$ e $x_i + h$. O erro global das diferenças avançadas é de primeira ordem, conforme o expoente $1$ que acompanha $h$.
+
+Para representação computacional, o método de diferenças avançadas em notação de índices é dado, após ignorar o termo de erro, por:
+
+\begin{equation}\label{forward_diff}
+f'(x_i)= \frac{f(x_{i+1})-f(x_i)}{h}
+\end{equation}
+
+É importante notar que o incremento $h$ escolhido para a aproximação deve ser cuidadosamente selecionado, levando em conta o compromisso entre a precisão da solução e a resolução da malha.
+
+\subsubsection{Diferenças Atrasadas}\label{sec:bw_diff}
+
+As diferenças atrasadas são um método para aproximar a derivada em um ponto $x_i$ usando um decremento $h$ na variável $x$, isto é, calculando o diferencial em um ponto anterior a $x_i$. Este método é obtido através do desenvolvimento da série de Taylor da função $f(x)$ no ponto $x_i$:
+
+\begin{equation*}
+f(x_i-h)= f(x_i)- hf'(x_i) + \frac{h^2}{2!}f''(\xi),
+\end{equation*}
+
+onde $\xi$ está entre $x_i-h$ e $x_i$. Isolando $f'(x_i)$, temos:
+
+\begin{equation*}
+f'(x_i)= \frac{f(x_i)-f(x_i-h)}{h} + \frac{h}{2}f''(\xi)
+\end{equation*}
+
+ou, de forma mais concisa,
+
+\begin{equation*}
+f'(x_i)= \frac{f(x_i)-f(x_i-h)}{h} + O(h)
+\end{equation*}
+
+Observamos que este é o método de diferenças atrasadas, que aproxima a derivada usando uma diferença finita regressiva. Este método possui erro de primeira ordem, que é proporcional a $h$.
+
+Em notação de índices, o método de diferenças atrasadas é, após ignorar o termo de erro, dado por:
+
+\begin{equation}\label{backward_diff}
+f'(x_i)= \frac{f(x_{i})-f(x_{i-1})}{h}
+\end{equation}
+
+\subsubsection{Diferenças Centradas}\label{sec:ct_diff}
+
+As diferenças centradas recebem esse nome porque são a média ou o centro dos métodos de diferenças avançadas e atrasadas. Essas diferenças são calculadas fazendo a média dos pontos anteriores e posteriores a $x$. Para $n = 2$ em (\ref{taylor}) e tomando $h$ e $-h$, temos:
+
+\begin{equation}\label{central_diff_forward}
+f(x_i+h) = f(x_i) + hf'(x_i) + \frac{h^2}{2!}f''(x_i) + \frac{h^3}{3!}f'''(\xi_1)
+\end{equation}
+onde $\xi_1$ está entre $x$ e $x+h$.
+\begin{equation}\label{central_diff_backward}
+f(x_i-h) = f(x_i) - hf'(x_i) + \frac{h^2}{2!}f''(x_i) - \frac{h^3}{3!}f'''(\xi_2)
+\end{equation}
+onde $\xi_2$ está entre $x-h$ e $x$.
+
+Subtraindo (\ref{central_diff_backward}) de (\ref{central_diff_forward}), temos:
+
+\begin{equation}\label{central_diff_opened}
+f(x_i+h) - f(x_i-h) = 2hf'(x_i) + \frac{h^3}{3!}\big(f'''(\xi_1) + f'''(\xi_2)\big)
+\end{equation}
+De acordo com o Teorema do Valor Intermediário, $\frac{f'''(\xi_1)+ f'''(\xi_2)}{2}= f'''(\xi)$, onde $\xi$ está entre $x-h$ e $x+h$.
+
+Isolando a primeira derivada em (\ref{central_diff_opened}), temos:
+
+\begin{equation*}
+f'(x_i)= \frac{f(x_i+h)-f(x_i-h)}{2h} - \frac{h^2}{3!}f'''(\xi)
+\end{equation*}
+Observa-se que este método pertence à família de métodos de ordem 2, dependendo do expoente de $h$. Isso pode ser denotado como:
+
+\begin{equation*}
+f'(x_i)= \frac{f(x_i+h)-f(x_i-h)}{2h} +O(h^2)
+\end{equation*}
+
+Ou apenas em notação de índices:
+
+\begin{equation}\label{central_difference}
+f'(x_i)= \frac{f(x_{i+1})-f(x_{i-1})}{2h}
+\end{equation}
+
+Os métodos de diferenças centradas também apresentam uma aproximação para a segunda derivada de $f(x)$, também de ordem 2. Para obter essa aproximação, equacionamos (\ref{central_diff_backward}) e (\ref{central_diff_forward}) para eliminar a primeira derivada e isolar a segunda. Dessa forma, obtemos a seguinte aproximação para $f''(x)$:
+
+\begin{equation*}\label{cd_2nd_derivative}
+	f''(x) = \frac{f_{i+1}  - 2f_{i} + f_{i-1}}{h^2} + O(h^2)
+\end{equation*}
+
+
+\subsection{Problema de Valor Inicial}\label{sec:ivp}
+Os Problemas de Valor Inicial (PVI) consistem em uma equação diferencial e uma condição inicial, em um dos limites do intervalo. O objetivo é encontrar o valor da função-problema $y(x)$ ao longo do intervalo $[a, b]$ do problema, com $a, b \in \mathbb{R}$, a partir da condição inicial. Para isso, usa-se um método numérico que aproxima os valores da função-problema em pontos discretos do intervalo, a partir da diferença aproximada pela derivada. Um PVI é representado por:
+\begin{equation*}
+	\begin{cases}
+		y' = f(x,y) &                           \\
+		y(a) = y_a  & \text{ com } x \in [a, b] 
+	\end{cases}
+\end{equation*}
+
+Assumindo que $y(x_0) = y_0$, é possível aproximar $y(x)$ com uma expressão do tipo:
+\begin{equation*}
+y_{i+1} = y_i + Z \text{ com } i = 0, 1, ..., N \text{ e } Z, N \in \mathbb{R}
+\end{equation*}
+Neste exemplo, $Z$ é a diferença calculada pelo método entre os pontos $y_i$ e $y_{i+1}$.
+
+Para garantir a existência e unicidade da solução, assume-se que o PVI satisfaz a condição de Cauchy-Lipschitz. Com isso, pode-se afirmar que:
+\begin{enumerate}
+\item $y(x)$ é contínua e diferenciável no intervalo $[a, b]$;
+\item $y(a) = y_a$;
+\item $y'(x) = f(x, y(x))$, com $x \in [a, b]$.
+\end{enumerate}
+
+\subsection{Métodos de Euler e Runge-Kutta}\label{sec:ivp_methods}
+Nesta subseção, serão apresentados os métodos para integrações numéricas de equações diferenciais ordinárias. Conforme discutido em (\ref{sec:finite_differences}), há três métodos de diferenças finitas para aproximar as derivadas, mas somente com eles não é possível realizar o processo inverso de integração numérica através da derivada. No entanto, caso a equação diferencial ordinária seja um PVI, é possível aproximar sua antiderivada numericamente por meio de manipulações nos métodos de diferenças finitas.
+
+Além disso, serão abordados os métodos de Runge-Kutta de ordem $n>1$, que utilizam o declive da função em pontos específicos do intervalo [$x_i$,$x_{i+1}$] para aprimorar a aproximação. Ao contrário do método de Euler explícito de primeira ordem, os métodos de Runge-Kutta de ordem superior usam uma combinação ponderada de declives em vários pontos para obter uma melhor aproximação numérica. 
+
+
+\subsubsection{Método de Euler explícito}\label{sec:explicit_euler}
+
+O método de Euler explícito, também conhecido como método de Runge-Kutta explícito de primeira ordem, é uma técnica utilizada para resolver equações diferenciais ordinárias. Ele é obtido a partir da equação (\ref{forward_diff}), sendo dado por:
+\begin{equation}\label{explicit_euler}
+y_{i+1}= y_{i} + h f(x_i, y_i)
+\end{equation}
+onde $i = 0, 1,...,N$, sendo $i$ a iteração e $N \in \mathbb{N}^*$. Observa-se que o ponto da iteração $y_{i+1}$ é calculado explicitamente a partir do valor de $y_i$, para qualquer que seja $f(x_i, y_i)$. Devido à propriedade de calcular o próximo passo com o atual, este método é classificado como explícito.
+
+O método de Euler explícito aproxima um ponto da função original somando o valor do ponto anterior ao produto do espaçamento da malha $h$ e da derivada da função no ponto anterior. O erro global deste método é de primeira ordem.
+
+\subsubsection{Método de Euler implícito}\label{sec:implicit_euler} \quad
+
+Analogamente a (\ref{explicit_euler}), este método pode ser obtido equacionando (\ref{backward_diff}) e incrementando em 1 o índice $i$:
+\begin{equation}\label{implicit_euler}
+	y_{i}= y_{i-1} + hy'_{i} \implies y_{i+1}= y_{i} + hy'_{i+1}
+\end{equation}
+com $i = 0, 1,...,N$ sendo $i$ a iteração e $N \in \mathbb{N}^*$. Observa-se que por tratar-se de uma equação diferencial, $y'_i$ é definida como $y'(x_i, y_i)$. Por consequência, a variável dependente $y_{i+1}$ está presente em ambos lados da equação. Para solucionar este problema, é necessário resolver um sistema de equações não-lineares.
+Exemplificando o processo, caso o PVI dado seja:
+\begin{equation*}
+	\begin{cases}
+		y' = x + y &                           \\
+		y(0) = 0   & \text{ com } x \in [0, 1] 
+	\end{cases}
+\end{equation*}
+Ao substituir a derivada no método de Euler implícito, obtemos a seguinte fórmula implícita:
+\begin{equation*}
+	y_{i+1} = y_i + h f(x_{i+1}, y_{i+1}) \\
+	\iff y_{i+1} = y_i + h (x_{i+1} + y_{i+1})\\ 
+\end{equation*}
+Reorganizando a equação, pode-se escrevê-la como:
+\begin{eqnarray*}
+	y_{i+1} = y_i + h (x_{i+1} + y_{i+1})\\
+	\iff y_{i+1} = y_i + hx_{i+1} + hy_{i+1}\\
+	\iff y_{i+1} - hy_{i+1} = y_i + hx_{i+1}\\
+	\iff (1-h)y_{i+1} = y_i + hx_{i+1}\\
+	\iff y_{i+1} = \frac{y_i + hx_{i+1}}{1-h}\qedhere
+\end{eqnarray*}
+
+Essa fórmula nos permite obter o valor de $y_{i+1}$ a partir de $y_i$ e $x_{i+1}$.
+
+Em termos de implementação computacional, a equação não-linear do método de Euler implícito pode ser resolvida por meio do método de iteração de ponto fixo, que adiciona um custo computacional ao método. Porém, esse método é conhecido por ser mais estável que o método de Euler explícito, especialmente para EDOs que possuem soluções oscilatórias ou instáveis.
+
+
+\subsubsection{Método do ponto médio modificado}\label{sec:modified-midpoint} \quad
+
+O método do ponto médio modificado é uma variação dos métodos de Euler Explícito e Implícito. Ele é derivado do método de diferenças centradas (\ref{central_difference}) e possui um erro global de ordem 2. Sua forma geral pode ser escrita como:
+\begin{equation*}
+y_{i+1} = y_{i-1} + 2 h f'i
+\end{equation*}
+onde $i = 1, 2,...,N$ é o índice da iteração e $N \in \mathbb{N}^*$ é o número de iterações. É importante notar que, como o método depende de $y{i-1}$ e $f'_i$, é necessário que se tenha conhecimento prévio de $y_0$ e $y_1$ para iniciar a iteração. Como os problemas de valor inicial fornecem apenas o valor de $y_0$, o valor de $y_1$ é aproximado utilizando-se o método de Euler Implícito.
+
+\subsubsection{Método de Runge-Kutta de terceira ordem}\label{sec:3rd-order-runge-kutta} \quad
+
+O método de Runge-Kutta de terceira ordem é uma técnica computacional que utiliza variáveis auxiliares e temporárias para armazenar temporariamente um resultado previamente calculado. Essas variáveis são usadas para calcular um ponto intermediário entre o atual e o próximo, reduzindo assim a quantidade de processamentos redundantes e acelerando a execução.
+
+Para obter a aproximação para o ponto $y_{i+1}$, é realizada uma média ponderada de três incrementos em $y_i$, sendo cada um deles um produto da estimativa do declive (ou coeficiente angular) em um ponto intermediário entre $y_i$ e $y_{i+1}$. Especificamente, $k_1$ é o coeficiente angular no início do intervalo, $k_2$ é um coeficiente no ponto médio do intervalo calculado usando $k_1$, e $k_3$ é o declive em três quartos do intervalo, que usa $k_2$ para ser calculado. Para avaliar a média ponderada, é dado maior peso para os declives a partir do ponto médio do intervalo.
+
+Assim, a aproximação para $y_{i+1}$ é dada por:
+
+% TODO: FIX THIS 2023
+% \begin{flalign}
+% 	k_1 = f(x_i, y_i)\\
+% 	k_2 = f\PC{x_i + \frac{1}{2}h,\space y_i + \frac{k_1}{2}h}\\
+% 	k_3 = f\PC{x_i + \frac{3}{4}h,\space y_i + \frac{3k_2}{4} h} \qedhere
+% \end{flalign}
+\begin{equation}
+	y_{i + 1} = y_i + h \cdot \frac{(2k_1 + 3k_2 + 4k_3)}{9} \qedhere
+\end{equation}
+
+onde $i = 0, 1,...,N$, sendo $i$ a iteração e $N \in \mathbb{N}^*$. Observa-se que em uma única iteração, ambos os valores de $k_1$ e $k_2$ são utilizados duas vezes para aproximar $y_{i+1}$. Desta forma, o computador pode calcular o resultado uma única vez e utilizá-lo em ambas as ocorrências.
+Este método de Runge-Kutta é de terceira ordem, isto é, seu erro global é $O(h^3)$ e oferece uma melhor aproximação da função original em comparação aos métodos de primeira e segunda ordem \cite{leveque2007finitediff}. Além disso, ele usufrui das vantagens dos cálculos computacionais para acelerar a execução.
+
+\subsubsection{Método de Runge-Kutta de quarta ordem}\label{sec:4th-order-runge-kutta} \quad
+O método de quarta ordem de Runge-Kutta é uma extensão/melhoria do método de terceira ordem e utiliza pontos pré-calculados para economizar processamento. Ele aproxima o valor de $y_{i+1}$ por meio de uma média ponderada de quatro incrementos em $y_i$, onde cada incremento é um produto da estimativa do declive (ou coeficiente angular) em um ponto intermediário entre $y_i$ e $y_{i+1}$.
+
+$k_1$ é o coeficiente angular no início do intervalo. $k_2$ e $k_3$ são os coeficientes no ponto médio do intervalo, calculados usando $k_1$ e $k_2$, respectivamente. Já o coeficiente $k_4$ é o declive no final do intervalo e é calculado utilizando $k_3$. A média ponderada é calculada dando maior peso aos declives no ponto médio do intervalo. O método de quarta ordem é dado por:
+
+\begin{equation}
+\begin{aligned}
+k_1 &= f(x_i, y_i)\
+k_2 &= f\left(x_i + \frac{h}{2}, y_i + \frac{k_1}{2}h\right)\
+k_3 &= f\left(x_i + \frac{h}{2}, y_i + \frac{k_2}{2}h\right)\
+k_4 &= f\left(x_i + h, y_i + k_3h\right)
+\end{aligned}
+\end{equation}
+
+\begin{equation}
+	y_{i + 1} = y_i + \frac{h}{6}(k_1 + 2k_2 + 2k_3 + k_4)
+\end{equation}
+
+onde $i$ é a iteração e $N \in \mathbb{N}^*$ com $i = 0, 1,...,N$. Similarmente ao método de terceira ordem, os coeficientes $k_1$, $k_2$ e $k_3$ são reaproveitados para os próximos cálculos. O método de quarta ordem é mais preciso que o método de terceira ordem, com um erro global de $O(h^4)$, o que o torna adequado para resolver problemas que exigem maior precisão.
+
+\subsection{Ordem de acurácia efetiva}\label{sec:error_approximation}\quad
+Cada método computacional de aproximação é caracterizado pela sua ordem de erro, como apresentado anteriormente. No entanto, quando há conhecimento da solução analítica, é possível extrair a ordem de acurácia efetiva do método aplicado. Esse conceito pode ser descrito como a inclinação local da curva do erro de discretização em relação ao espaçamento $h$ em escala logarítmica.
+
+Para calcular a ordem de acurácia efetiva de um método, é possível utilizar a seguinte equação:
+
+\begin{equation}\label{effective_order}
+O(m) =
+\Bigg|
+\dfrac{\ln{E_2(x_p)}}{\ln{E_1(x_p)}} \cdot \dfrac{\ln{h_1}}{\ln{h_2}}
+\Bigg|
+\end{equation}
+
+Nessa equação, $h_1$ e $h_2$ são espaçamentos arbitrários de malha, com ${h_1,h_2 \in \mathbb{R} \mid (h_2 > 0) \cap (h_1 > 0 \cap (h_2 \ne h_1)}$. $E_1(x_p) \ne 0$ e $E_2(x_p)$ são os erros das soluções obtidas com o método $m$ utilizando as malhas com espaçamento $h_1$ e $h_2$, respectivamente, em que $x_p$ é um ponto em comum de ambas malhas que será utilizado como referência, e difere de $x_0$, o ponto em que a condição inicial é dada.
+
+É importante ressaltar que a ordem só pode ser calculada quando há conhecimento da solução exata. Em relação à implementação em software para os problemas propostos, o ponto selecionado será $b$, o último ponto comum entre as diversas possíveis malhas. Esse cálculo resultará em um número real próximo à ordem teórica de erro do método, que caracteriza a ordem efetiva do método para o problema determinado.

@@ -1,0 +1,15 @@
+\section{Introdução}\label{sec:context}
+
+As equações diferenciais tiveram sua origem no surgimento do cálculo numérico de Newton e, desde então, têm sido amplamente utilizadas na criação de modelos matemáticos de diversos fenômenos da natureza e da ciência. Essas equações relacionam funções matemáticas com suas derivadas, frequentemente apresentando alto grau de complexidade, o que dificulta a obtenção de soluções analíticas precisas.
+
+Dentre os fenômenos que podem ser representados por meio de equações diferenciais, destaca-se o crescimento de populações. Nesse problema, diversos fatores podem ser considerados na dinâmica de crescimento do número de indivíduos, incluindo os limites ecológicos do habitat e as interações tróficas existentes, em especial a predação.
+
+Considerando que os meios para estimar esses fatores são bastante custosos, a análise de um ambiente controlado, como no estudo da capacidade de carga e nas equações de Lotka-Volterra \cite{goel1971}, é necessária para compreender individualmente o efeito de cada um desses fatores.
+
+O crescimento de populações biológicas, apesar de geralmente apresentar um comportamento periódico, pode se tornar complexo e requerer a modelagem matemática para aproximar numericamente o problema e reduzir o tempo de cálculo das simulações. Além disso, caso haja êxito na análise dos problemas, é possível encontrar aproximações para sistemas que não possuem solução analítica conhecida.
+
+Neste trabalho serão explorados métodos iterativos e computacionais para a solução de equações diferenciais ordinárias (EDOs), que envolvem funções com uma variável independente e suas derivadas. Com a população inicial conhecida e a equação diferencial que descreve o comportamento dessas populações, é possível simular e solucionar numericamente a evolução das populações estudadas. Tais informações são suficientes para serem traduzidas para um Problema de Valor Inicial (PVI) e resolvidas por um método computacional. Para tanto, serão abordados os métodos de diferenças finitas e de Runge-Kutta, que recorrem à discretização dos domínios dos problemas \cite{ascher2008numerical}.
+
+Para auxiliar nos cálculos numéricos e ilustrações gráficas serão utilizadas, respectivamente, as bibliotecas \emph{Numpy}, \emph{Numba} e a linguagem de programação \emph{Python}, e a biblioteca gráfica \emph{Matplotlib}.
+
+Este trabalho foi desenvolvido no período de agosto de 2021 a julho de 2022, com apoio da bolsa PICME - Programa de Iniciação Científica e Mestrado. A realização deste trabalho tem o objetivo de contribuir para o desenvolvimento de métodos computacionais eficientes para a solução de problemas em equações diferenciais ordinárias.
