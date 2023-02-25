@@ -61,8 +61,8 @@ pub fn get_initial_conditions(mask: &DynamicImage) -> (Distances, States, Heap) 
 }
 
 // TODO: Fix this function
-fn telea_distances(dist: &mut Distances, states: &States, heap: &Heap, radius: u8) {
-    let (width, height) = (dist.len() as i32, dist[0].len() as i32);
+fn telea_distances(distances: &mut Distances, states: &States, heap: &Heap, radius: u8) {
+    let (width, height) = (distances.len() as i32, distances[0].len() as i32);
 
     let mut aux_heap = heap.clone();
     let mut aux_states = states.clone();
@@ -85,7 +85,7 @@ fn telea_distances(dist: &mut Distances, states: &States, heap: &Heap, radius: u
                     && aux_states[nb.x as usize][nb.y as usize].is_known()
                     {
                         aux_states[nb.x as usize][nb.y as usize] = State::Change;
-                        dist[nb.x as usize][nb.y as usize] = DIST_MAX;
+                        distances[nb.x as usize][nb.y as usize] = DIST_MAX;
                     }
                 }
             });
@@ -102,9 +102,9 @@ fn telea_distances(dist: &mut Distances, states: &States, heap: &Heap, radius: u
                 && nb.y > 0
                 && aux_states[nb.x as usize][nb.y as usize].is_unknown()
             {
-                let min_dist = solve_fast_marching_method(&nb, dist, &aux_states);
+                let min_dist = solve_fast_marching_method(&nb, distances, &aux_states);
 
-                dist[nb.x as usize][nb.y as usize] = min_dist;
+                distances[nb.x as usize][nb.y as usize] = min_dist;
                 aux_states[nb.x as usize][nb.y as usize] = State::Band;
                 aux_heap.push(min_dist, nb);
             }
@@ -116,7 +116,7 @@ fn telea_distances(dist: &mut Distances, states: &States, heap: &Heap, radius: u
             .enumerate()
             .filter(|(_, state)| state.is_change())
             .for_each(|(j, _)| {
-                dist[i][j] *= -1.0;
+                distances[i][j] *= -1.0;
             });
     });
 }
@@ -325,7 +325,7 @@ fn solve_fast_marching_method(nb: &Point<i32>, distances: &Distances, states: &S
 ///
 /// # Arguments:
 ///
-/// * source_color: `[f64; 3]`: An array of three f64 values representing the color of the corresponding pixel in the input image.
+/// * source_color: `[f64; 3]`: An array  of three f64 values representing the color of the corresponding pixel in the input image.
 /// * smoothness: `[f64; 3]`: An array of three f64 values representing the smoothness of the corresponding pixel in the input image.
 /// * x_gradient: `[f64; 3]`: An array of three f64 values representing the horizontal gradient of the corresponding pixel in the input image.
 /// * y_gradient: `[f64; 3]`: An array of three f64 values representing the vertical gradient of the corresponding pixel in the input image.
@@ -505,7 +505,12 @@ fn bertalmio_pixel(
 ///
 /// A `[Point<f64>; 3]` array containing the pixel gradient in x, y, and z directions
 ///
-fn get_pixel_gradient(dist: &Distances, i: usize, j: usize, states: &States) -> [Point<f64>; 3] {
+fn get_pixel_gradient(
+    distances: &Distances,
+    i: usize,
+    j: usize,
+    states: &States,
+) -> [Point<f64>; 3] {
     let mut gradient: [Point<f64>; 3] = [Point::<f64>::new(0.0, 0.0); 3];
 
     // Calculate the gradient for each channel (x and y)
@@ -515,11 +520,11 @@ fn get_pixel_gradient(dist: &Distances, i: usize, j: usize, states: &States) -> 
             // Unknown on both sides
             (State::Unknown, State::Unknown) => 0.0,
             // Unknown on left side only
-            (State::Unknown, _) => dist[i][j] - dist[i][j - 1],
+            (State::Unknown, _) => distances[i][j] - distances[i][j - 1],
             // Unknown on right side only
-            (_, State::Unknown) => dist[i][j + 1] - dist[i][j],
+            (_, State::Unknown) => distances[i][j + 1] - distances[i][j],
             // Known on both sides
-            (_, _) => (dist[i][j + 1] - dist[i][j - 1]) * 0.5,
+            (_, _) => (distances[i][j + 1] - distances[i][j - 1]) * 0.5,
         };
 
         // Calculate the y-component of the gradient
@@ -527,11 +532,11 @@ fn get_pixel_gradient(dist: &Distances, i: usize, j: usize, states: &States) -> 
             // Unknown above and below
             (State::Unknown, State::Unknown) => 0.0,
             // Unknown above
-            (State::Unknown, _) => dist[i][j] - dist[i - 1][j],
+            (State::Unknown, _) => distances[i][j] - distances[i - 1][j],
             // Unknown below
-            (_, State::Unknown) => dist[i + 1][j] - dist[i][j],
+            (_, State::Unknown) => distances[i + 1][j] - distances[i][j],
             // Known above and below
-            (_, _) => (dist[i + 1][j] - dist[i - 1][j]) * 0.5,
+            (_, _) => (distances[i + 1][j] - distances[i - 1][j]) * 0.5,
         };
     }
 
