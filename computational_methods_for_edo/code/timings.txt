@@ -1,0 +1,30 @@
+\begin{table}[htb]
+\centering
+\caption{Timing results}
+\label{tab:timing}
+\begin{tabular}{|l|l|l|}
+\hline
+Method & N & Time (s) \\ \hline
+Euler Explícito & 10 & 1.1297989999548008e-05 \\ 
+Euler Explícito & 100 & 1.0900170000240905e-05 \\ 
+Euler Explícito & 1000 & 1.6555279999010963e-05 \\ 
+Euler Explícito & 10000 & 6.229306999898654e-05 \\ 
+Euler Implícito & 10 & 1.4017700000295008e-05 \\ 
+Euler Implícito & 100 & 1.114744000005885e-05 \\ 
+Euler Implícito & 1000 & 1.9783259999712756e-05 \\ 
+Euler Implícito & 10000 & 0.00010470320999957039 \\ 
+Diferenças Centradas & 10 & 1.0846579999679307e-05 \\ 
+Diferenças Centradas & 100 & 1.0335389999909239e-05 \\ 
+Diferenças Centradas & 1000 & 1.5482180000390144e-05 \\ 
+Diferenças Centradas & 10000 & 6.359393000025192e-05 \\ 
+Runge-Kutta 3 & 10 & 1.0927860000720101e-05 \\ 
+Runge-Kutta 3 & 100 & 1.2334070000861174e-05 \\ 
+Runge-Kutta 3 & 1000 & 3.150122999954874e-05 \\ 
+Runge-Kutta 3 & 10000 & 0.0002168895399995563 \\ 
+Runge-Kutta 4 & 10 & 1.02896199996394e-05 \\ 
+Runge-Kutta 4 & 100 & 1.2701639999477265e-05 \\ 
+Runge-Kutta 4 & 1000 & 3.502508999986276e-05 \\ 
+Runge-Kutta 4 & 10000 & 0.0002549000299995896 \\ 
+\hline
+\end{tabular}
+\end{table}
