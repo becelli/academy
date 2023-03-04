@@ -60,64 +60,56 @@ pub fn get_initial_conditions(mask: &DynamicImage) -> (Distances, States, Heap) 
     (distances, states, heap)
 }
 
-// TODO: Fix this function
+
 fn telea_distances(distances: &mut Distances, states: &States, heap: &Heap, radius: u8) {
     let (width, height) = (distances.len() as i32, distances[0].len() as i32);
 
     let mut aux_heap = heap.clone();
     let mut aux_states = states.clone();
 
-    states.iter().enumerate().for_each(|(i, row)| {
-        row.iter()
-            .enumerate()
-            .filter(|(_, state)| state.is_unknown())
-            .for_each(|(j, _)| {
-                let neighbors =
-                    get_connectivity_n(Point::<i32>::new(i as i32, j as i32), radius as i32);
-
-                for nb in neighbors {
-                    if nb.x < width - 1
-                    && nb.y < height - 1
-                    && nb.x > 0
-                    && nb.y > 0
-                    // && !aux_states[nb.x as usize][nb.y as usize].is_unknown()
-                    // && !aux_states[nb.x as usize][nb.y as usize].is_band()
-                    && aux_states[nb.x as usize][nb.y as usize].is_known()
-                    {
-                        aux_states[nb.x as usize][nb.y as usize] = State::Change;
-                        distances[nb.x as usize][nb.y as usize] = DIST_MAX;
-                    }
-                }
-            });
+    // swap UNKNOWN and KNOWN states
+    aux_states.iter_mut().for_each(|row| {
+        row.iter_mut().for_each(|state| match state {
+            State::Unknown => *state = State::Known,
+            State::Known => *state = State::Unknown,
+            _ => (),
+        })
     });
 
-    while let Some((_, pos)) = aux_heap.pop() {
-        aux_states[pos.x as usize][pos.y as usize] = State::Change;
+    let mut last_dist = 0.0;
+    let double_radius = radius as f64 * 2.0;
 
-        let neighbors = get_connectivity_4(pos);
+    while let Some((_, point)) = aux_heap.pop() {
+        let (x, y) = (point.x as usize, point.y as usize);
+        aux_states[x][y] = State::Known;
+
+        let neighbors = get_connectivity_4(point);
+
         for nb in neighbors {
-            if nb.x < width - 1
-                && nb.y < height - 1
-                && nb.x > 0
-                && nb.y > 0
-                && aux_states[nb.x as usize][nb.y as usize].is_unknown()
+            if nb.x <= 0
+                || nb.x >= width
+                || nb.y <= 0
+                || nb.y >= height
+                || !aux_states[nb.x as usize][nb.y as usize].is_unknown()
             {
-                let min_dist = solve_fast_marching_method(&nb, distances, &aux_states);
-
-                distances[nb.x as usize][nb.y as usize] = min_dist;
-                aux_states[nb.x as usize][nb.y as usize] = State::Band;
-                aux_heap.push(min_dist, nb);
+                continue;
             }
+
+            last_dist = solve_fast_marching_method(&nb, distances, &aux_states);
+            distances[nb.x as usize][nb.y as usize] = last_dist;
+            aux_states[nb.x as usize][nb.y as usize] = State::Band;
+            aux_heap.push(last_dist, nb);
+        }
+
+        if last_dist > double_radius {
+            break;
         }
     }
 
-    aux_states.iter().enumerate().for_each(|(i, row)| {
-        row.iter()
-            .enumerate()
-            .filter(|(_, state)| state.is_change())
-            .for_each(|(j, _)| {
-                distances[i][j] *= -1.0;
-            });
+    distances.iter_mut().for_each(|row| {
+        row.iter_mut().for_each(|dist| {
+            *dist *= -1.0;
+        })
     });
 }
 

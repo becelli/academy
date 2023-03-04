@@ -1,7 +1,6 @@
 mod def;
 mod inpaint;
 mod neighborhood;
-use image::DynamicImage;
 use inpaint::{bertalmio2001, telea2004};
 
 fn main() {
@@ -9,19 +8,26 @@ fn main() {
 
     let names = ["becelli", "bricks", "text-horse"];
 
-    for name in names.iter() {
-        // try open jpg, if not, try bmp
-        let img: DynamicImage = image::open(format!("samples/{name}.jpg")).unwrap_or_else(|_| {
-            image::open(format!("samples/{name}.bmp"))
-                .unwrap_or_else(|_| image::open(format!("samples/{name}.png")).unwrap())
+    for name in names {
+        
+        let formats = ["jpg", "bmp", "png", "jpeg"];
+        let img_name = |name: &str, fmt: &str| format!("samples/{name}.{fmt}");
+        let mask_name = |name: &str, fmt: &str| format!("samples/{name}_mask.{fmt}");
+        
+        let (img, mask) = formats.iter().fold((None, None), |(img, mask), format| {
+            let img = img.or_else(|| image::open(img_name(name, format)).ok());
+            let mask = mask.or_else(|| image::open(mask_name(name, format)).ok());
+            (img, mask)
         });
-
-        let mask: DynamicImage =
-            image::open(format!("samples/{name}_mask.jpg")).unwrap_or_else(|_| {
-                image::open(format!("samples/{name}_mask.bmp"))
-                    .unwrap_or_else(|_| image::open(format!("samples/{name}_mask.png")).unwrap())
-            });
-
+    
+        let (img, mask) = match (img, mask) {
+            (Some(img), Some(mask)) => (img, mask),
+            _ => {
+                println!("image or mask not found");
+                continue;
+            }
+        };
+        
         let start = std::time::Instant::now();
         let result_telea = telea2004(&img, &mask, radius).unwrap();
         let elapsed = start.elapsed().as_millis();
