@@ -1,4 +1,4 @@
-pub const DIST_MAX: f64 = 1e6;
+const DIST_MAX: f64 = 1e6;
 use ordered_float::OrderedFloat;
 use std::{cmp::Reverse, collections::BinaryHeap};
 
@@ -10,25 +10,68 @@ pub enum State {
     Change,
 }
 
+pub fn get_mat<T: std::clone::Clone>(width: usize, height: usize, default: T) -> Vec<Vec<T>> {
+    vec![vec![default; height]; width]
+}
+
 impl State {
-    pub fn is_known(&self) -> bool {
-        matches!(self, State::Known)
-    }
     pub fn is_change(&self) -> bool {
         matches!(self, State::Change)
-    }
-    pub fn is_band(&self) -> bool {
-        matches!(self, State::Band)
     }
     pub fn is_unknown(&self) -> bool {
         matches!(self, State::Unknown)
     }
 }
 
-pub type Distances = Vec<Vec<f64>>;
-pub type States = Vec<Vec<State>>;
+pub struct Distances {
+    pub values: Vec<Vec<f64>>,
+    pub width: usize,
+    pub height: usize,
+}
+// pub type States = Vec<Vec<State>>;
+#[derive(Clone)]
+pub struct States {
+    pub values: Vec<Vec<State>>,
+    pub width: usize,
+    pub height: usize,
+}
 
-#[derive(Clone, Debug)]
+impl Distances {
+    pub fn new(width: usize, height: usize) -> Distances {
+        Distances {
+            values: get_mat(width, height, DIST_MAX),
+            width,
+            height,
+        }
+    }
+    pub fn get(&self, x: usize, y: usize) -> f64 {
+        self.values[x][y]
+    }
+    pub fn set(&mut self, x: usize, y: usize, value: f64) {
+        self.values[x][y] = value;
+    }
+}
+
+impl States {
+    pub fn new(width: usize, height: usize) -> States {
+        States {
+            values: get_mat(width, height, State::Known),
+            width,
+            height,
+        }
+    }
+    pub fn get(&self, x: usize, y: usize) -> State {
+        self.values[x][y]
+    }
+    pub fn set(&mut self, x: usize, y: usize, value: State) {
+        self.values[x][y] = value;
+    }
+    pub fn get_mut(&mut self, x: usize, y: usize) -> &mut State {
+        &mut self.values[x][y]
+    }
+}
+
+#[derive(Clone)]
 pub struct Heap(BinaryHeap<(Reverse<OrderedFloat<f64>>, Point<i32>)>);
 
 impl Heap {
@@ -41,17 +84,6 @@ impl Heap {
     pub fn pop(&mut self) -> Option<(Reverse<OrderedFloat<f64>>, Point<i32>)> {
         self.0.pop()
     }
-    pub fn is_empty(&self) -> bool {
-        self.0.is_empty()
-    }
-    pub fn len(&self) -> usize {
-        self.0.len()
-    }
-}
-
-#[inline]
-pub fn get_mat<T: std::clone::Clone>(width: usize, height: usize, default: T) -> Vec<Vec<T>> {
-    vec![vec![default; height]; width]
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
@@ -72,12 +104,8 @@ impl Point<f64> {
     }
 }
 
-
 impl Point<i32> {
     pub fn new(x: i32, y: i32) -> Point<i32> {
         Point { x, y }
-    }
-    pub fn norm(&self) -> f64 {
-        (self.x * self.x + self.y * self.y) as f64
     }
 }
