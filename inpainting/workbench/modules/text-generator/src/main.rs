@@ -2,6 +2,11 @@ use markov::Chain;
 
 fn main() {
     let mut chain = Chain::new();
-    chain.feed_str("I like cats and I like dogs.");
-    println!("{}", chain.generate_str());
+
+    // read from assets/markov_seed.txt
+    let text = std::fs::read_to_string("markov_seed.txt").unwrap();
+    chain.feed_str(&text);
+    // generate 10 sentences
+    let generated = chain.generate();
+    println!("{}", generated.join(" "));
 }
