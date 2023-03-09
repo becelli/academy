@@ -14,7 +14,7 @@ pub fn corrupt_image(img: &DynamicImage) -> (DynamicImage, DynamicImage) {
 
 pub fn corrupt_text(img: &DynamicImage) -> (DynamicImage, DynamicImage) {
     let (width, height) = img.dimensions();
-    let mut imgbuf = img.to_rgba8();
+    let mut imgbuf = img.clone();
 
     let text = thread_rng()
         .sample_iter(&Alphanumeric)
@@ -28,7 +28,9 @@ pub fn corrupt_text(img: &DynamicImage) -> (DynamicImage, DynamicImage) {
         .layout(text.as_str(), scale, rusttype::point((width / 2) as f32, (height / 2) as f32))
         .collect();
 
-    let mut mask = image::DynamicImage::new_rgba8(width, height);
+    // mask is a full black image
+    let mut mask = image::DynamicImage::new_rgb8(width, height);
+    
 
     for glyph in glyphs {
         if let Some(bb) = glyph.pixel_bounding_box() {
@@ -36,10 +38,11 @@ pub fn corrupt_text(img: &DynamicImage) -> (DynamicImage, DynamicImage) {
 
                 let x = x + bb.min.x as u32;
                 let y = y + bb.min.y as u32;
-                if x < width && y < height && v > 0.0 {
+                if x < width && y < height && v > 0.1 {
                     let color = Rgba([255, 255, 255, (v * 255.0) as u8]);
                     imgbuf.put_pixel(x, y, color);
-                    mask.put_pixel(x, y, color);
+                    let mask_color = Rgba([255, 255, 255, 255]);
+                    mask.put_pixel(x, y, mask_color);
                 }
 
             });
@@ -47,7 +50,7 @@ pub fn corrupt_text(img: &DynamicImage) -> (DynamicImage, DynamicImage) {
     }
 
     (
-        DynamicImage::ImageRgba8(imgbuf),
+        imgbuf,
         mask
     )
 }

@@ -59,4 +59,3 @@ pub fn psnr(original: &DynamicImage, reconstructed: &DynamicImage) -> f64 {
 
     10.0 * (max_pixel_value.powi(2) / mse).log10()
 }
-
