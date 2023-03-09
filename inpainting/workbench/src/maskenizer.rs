@@ -18,7 +18,7 @@ pub fn glyphs_corrupt(img: &DynamicImage) -> (DynamicImage, DynamicImage) {
 
     let text = thread_rng()
         .sample_iter(&Alphanumeric)
-        .take(50)
+        .take(10)
         .map(char::from)
         .collect::<String>();
 
@@ -29,7 +29,7 @@ pub fn glyphs_corrupt(img: &DynamicImage) -> (DynamicImage, DynamicImage) {
             text.as_str(),
             scale,
             // begin at the top left corner of the image, with a 10 pixel margin
-            rusttype::point(10.0, 10.0 + scale.y),
+            rusttype::point(0.0, scale.y),
         )
         .collect();
 
