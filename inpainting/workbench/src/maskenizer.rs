@@ -36,8 +36,8 @@ pub fn corrupt_text(img: &DynamicImage) -> (DynamicImage, DynamicImage) {
 
                 let x = x + bb.min.x as u32;
                 let y = y + bb.min.y as u32;
-                let color = Rgba([255, 255, 255, (v * 255.0) as u8]);
-                if x < width && y < height {
+                if x < width && y < height && v > 0.0 {
+                    let color = Rgba([255, 255, 255, (v * 255.0) as u8]);
                     imgbuf.put_pixel(x, y, color);
                     mask.put_pixel(x, y, color);
                 }
