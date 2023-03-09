@@ -1,5 +1,5 @@
 [package]
-name = "fmm-inpaint"
+name = "fmm_inpaint"
 version = "0.1.0"
 edition = "2021"
 
