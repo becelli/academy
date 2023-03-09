@@ -1,0 +1,14 @@
+[package]
+name = "rust-workbench"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+fmm_inpaint = { path = "fmm_inpaint" }
+image_metrics = { path = "image_metrics" }
+image = "0.24.5"
+rand = "0.8.5"
+imageproc = "0.23.0"
+rusttype = "0.9.3"
