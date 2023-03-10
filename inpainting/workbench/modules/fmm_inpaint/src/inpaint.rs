@@ -1,6 +1,7 @@
 use super::def::{Distances, Heap, Point, State, States};
 use image::{self, DynamicImage, GenericImage, GenericImageView, Pixel, Rgba};
 
+
 enum InpaintMethod {
     NavierStokes,
     Telea,
@@ -101,9 +102,9 @@ fn telea_distances(distances: &mut Distances, states: &States, heap: &Heap, radi
 
         for nb in neighbors {
             if nb.x <= 0
-                || nb.x >= width
+                || nb.x >= width - 1
                 || nb.y <= 0
-                || nb.y >= height
+                || nb.y >= height - 1
                 || !aux_states.get(nb.x as usize, nb.y as usize).is_unknown()
             {
                 continue;

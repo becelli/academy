@@ -4,11 +4,9 @@ use rand::{thread_rng, Rng};
 use rusttype::{Font, Scale};
 
 pub fn corrupt_image(img: &DynamicImage) -> (DynamicImage, DynamicImage) {
-    // rand between 0 and 5
     let rng = rand::thread_rng().gen_range(0..2);
     match rng {
         _ => glyphs_corrupt(img),
-        // _ => corrupt_drawings(img),
     }
 }
 
@@ -66,4 +64,11 @@ pub fn glyphs_corrupt(img: &DynamicImage) -> (DynamicImage, DynamicImage) {
     }
 
     (imgbuf, mask)
+}
+
+#[allow(dead_code, unused_variables)]
+pub fn corrupt_drawings(img: &DynamicImage) -> (DynamicImage, DynamicImage) {
+    let (width, height) = img.dimensions();
+
+    (img.clone(), img.clone())
 }

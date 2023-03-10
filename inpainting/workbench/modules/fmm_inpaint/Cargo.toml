@@ -7,6 +7,7 @@ edition = "2021"
 
 [dependencies]
 image = "0.24.5"
+jemallocator = "0.5.0"
 ordered-float = "3.4.0"
 rayon = "1.6.1"
 
