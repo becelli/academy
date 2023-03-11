@@ -1,7 +1,6 @@
 use super::def::{Distances, Heap, Point, State, States};
 use image::{self, DynamicImage, GenericImage, GenericImageView, Pixel, Rgba};
 
-
 enum InpaintMethod {
     NavierStokes,
     Telea,
@@ -34,7 +33,7 @@ fn get_connectivity_4(pos: Point<i32>) -> [Point<i32>; 4] {
 
 fn get_initial_conditions(mask: &DynamicImage) -> (Distances, States, Heap) {
     // Determine the width and height of the mask image
-    let (width, height) = (mask.dimensions().0, mask.dimensions().1);
+    let (width, height) = mask.dimensions();
     // Add padding to the width and height for the border pixels
     let (w_2, h_2) = ((width + 2) as usize, (height + 2) as usize);
 

@@ -28,7 +28,7 @@ pub struct Distances {
     pub width: usize,
     pub height: usize,
 }
-// pub type States = Vec<Vec<State>>;
+
 #[derive(Clone)]
 pub struct States {
     pub values: Vec<Vec<State>>,

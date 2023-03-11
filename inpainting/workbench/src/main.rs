@@ -1,219 +1,186 @@
 mod maskenizer;
 use fmm_inpaint::{bertalmio2001, telea2004};
 use image_metrics::{diff_color, diff_mean_square, diff_pixels, psnr};
-use plotters::prelude::*;
+// use plotters::prelude::*;
+use rayon::iter::ParallelIterator;
+use rayon::prelude::*;
+use std::env;
+use std::sync::{Arc, Mutex};
 
 use std::path::Path;
 
-// use Jemalloc as global allocator
 #[global_allocator]
 static GLOBAL: jemallocator::Jemalloc = jemallocator::Jemalloc;
 
-fn inpaint(max_samples: usize) {
-    if !Path::new("dataset/corrupted").exists() {
-        std::fs::create_dir_all("dataset/corrupted").unwrap();
+struct MethodMetrics {
+    pub size: usize,
+    pub timings: Vec<f64>,
+    pub pixel_diffs: Vec<f64>,
+    pub color_diffs: Vec<f64>,
+    pub mses: Vec<f64>,
+    pub psnrs: Vec<f64>,
+}
+
+struct Metric {
+    pub timing: f64,
+    pub pixel_diff: f64,
+    pub color_diff: f64,
+    pub mse: f64,
+    pub psnr: f64,
+}
+
+struct Names {
+    original: String,
+    corrupted: String,
+    mask: String,
+    result_telea: String,
+    result_bertalmio: String,
+}
+
+impl Names {
+    fn new_from(filename: &str) -> Self {
+        let (name, ext) = filename.split_once('.').unwrap();
+        Self {
+            original: format!("dataset/original/{name}.{ext}"),
+            corrupted: format!("dataset/corrupted/{name}_corrupted.{ext}"),
+            mask: format!("dataset/mask/{name}_mask.{ext}"),
+            result_telea: format!("dataset/restored/{name}_telea.{ext}"),
+            result_bertalmio: format!("dataset/restored/{name}_bertalmio.{ext}"),
+        }
+    }
+}
+
+impl MethodMetrics {
+    fn new(size: usize) -> Self {
+        Self {
+            size,
+            timings: Vec::with_capacity(size),
+            pixel_diffs: Vec::with_capacity(size),
+            color_diffs: Vec::with_capacity(size),
+            mses: Vec::with_capacity(size),
+            psnrs: Vec::with_capacity(size),
+        }
     }
 
-    if !Path::new("dataset/mask").exists() {
-        std::fs::create_dir_all("dataset/mask").unwrap();
+    fn push(&mut self, metric: Metric) {
+        self.timings.push(metric.timing);
+        self.pixel_diffs.push(metric.pixel_diff);
+        self.color_diffs.push(metric.color_diff);
+        self.mses.push(metric.mse);
+        self.psnrs.push(metric.psnr);
     }
+}
 
-    if !Path::new("dataset/result").exists() {
-        std::fs::create_dir_all("dataset/result").unwrap();
+impl Metric {
+    fn new() -> Self {
+        Self {
+            timing: 0.0,
+            pixel_diff: 0.0,
+            color_diff: 0.0,
+            mse: 0.0,
+            psnr: 0.0,
+        }
     }
+}
 
-    let names: Vec<String> = std::fs::read_dir("dataset/original")
+fn create_inpainting_paths() {
+    ["corrupted", "mask", "restored", "metrics"]
+        .iter()
+        .for_each(|dir| {
+            if !Path::new(format!("dataset/{}", dir).as_str()).exists() {
+                std::fs::create_dir_all(format!("dataset/{}", dir)).unwrap();
+            }
+        });
+}
+
+fn inpaint(radius: u8, max_samples: usize) {
+    create_inpainting_paths();
+
+    let filenames: Vec<String> = std::fs::read_dir("dataset/original")
         .unwrap()
         .filter_map(|e| e.ok())
         .filter(|e| e.file_type().unwrap().is_file())
         .map(|e| e.file_name().into_string().unwrap())
-        .take(if max_samples > 0 {
-            max_samples
-        } else {
-            usize::MAX
-        })
+        .take(max_samples)
         .collect();
 
-    println!("Found {} images:", names.len());
+    let names_len = filenames.len();
+    let telea2004_metrics = Arc::new(Mutex::new(MethodMetrics::new(names_len)));
+    let bertalmio2001_metrics = Arc::new(Mutex::new(MethodMetrics::new(names_len)));
 
-    let names_len = names.len();
-    let mut timings_t2004 = Vec::with_capacity(names_len);
-    let mut pixel_diffs_t2004 = Vec::with_capacity(names_len);
-    let mut color_diffs_t2004 = Vec::with_capacity(names_len);
-    let mut mses_t2004 = Vec::with_capacity(names_len);
-    let mut psnrs_t2004 = Vec::with_capacity(names_len);
+    filenames.par_iter().for_each(|name| {
+        let mut metric_telea = Metric::new();
+        let mut metric_bertalmio = Metric::new();
+        let name = Names::new_from(name);
 
-    let mut timings_b2001 = Vec::with_capacity(names_len);
-    let mut pixel_diffs_b2001 = Vec::with_capacity(names_len);
-    let mut color_diffs_b2001 = Vec::with_capacity(names_len);
-    let mut mses_b2001 = Vec::with_capacity(names_len);
-    let mut psnrs_b2001 = Vec::with_capacity(names_len);
+        let img_original = image::open(name.original).unwrap();
+        let (img_corrupted, img_mask) = maskenizer::corrupt_image(&img_original);
 
-    for name in names {
-        println!("Processing image {}", name);
-        let split: Vec<&str> = name.split('.').collect();
-        let (name, ext) = (split[0], split[1]);
-        let name_original = format!("dataset/original/{name}.{ext}");
-        let name_corrupted = format!("dataset/mask/{name}_mask.{ext}");
-        let name_mask = format!("dataset/corrupted/{name}_corrupted.{ext}");
-        let name_result_t2004 = format!("dataset/result/{name}_telea.{ext}");
-        let name_result_b2001 = format!("dataset/result/{name}_bertalmio.{ext}");
-        let img_original = image::open(name_original.clone()).unwrap();
-        // if fails, create mask and corrupted image
-        let (img_corrupted, img_mask) =
-            if Path::new(&name_corrupted).exists() && Path::new(&name_mask).exists() {
-                (
-                    image::open(name_corrupted.clone()).unwrap(),
-                    image::open(name_mask.clone()).unwrap(),
-                )
-            } else {
-                let (corrupted, mask) = maskenizer::corrupt_image(&img_original);
-                corrupted.save(name_corrupted.clone()).unwrap();
-                mask.save(name_mask.clone()).unwrap();
-                (corrupted, mask)
-            };
+        let start = std::time::Instant::now();
+        let img_result_telea = telea2004(&img_corrupted, &img_mask, radius).unwrap();
+        metric_telea.timing = start.elapsed().as_millis() as f64;
 
-        let radius = 7;
+        let start = std::time::Instant::now();
+        let img_result_b2001 = bertalmio2001(&img_corrupted, &img_mask, radius).unwrap();
+        metric_bertalmio.timing = start.elapsed().as_millis() as f64;
 
-        let start_t2004 = std::time::Instant::now();
-        let result_telea = telea2004(&img_corrupted, &img_mask, radius).unwrap();
-        let elapsed_t2004 = start_t2004.elapsed().as_millis() as f64;
+        img_corrupted.save(name.corrupted).unwrap();
+        img_mask.save(name.mask).unwrap();
+        img_result_telea.save(name.result_telea).unwrap();
+        img_result_b2001.save(name.result_bertalmio).unwrap();
 
-        let start_b2001 = std::time::Instant::now();
-        let result_b2001 = bertalmio2001(&img_corrupted, &img_mask, radius).unwrap();
-        let elapsed_b2001 = start_b2001.elapsed().as_millis() as f64;
+        run_metrics(&img_original, &img_result_telea, &mut metric_telea);
+        run_metrics(&img_original, &img_result_b2001, &mut metric_bertalmio);
 
-        result_telea.save(name_result_t2004.clone()).unwrap();
-        result_b2001.save(name_result_b2001.clone()).unwrap();
+        telea2004_metrics.lock().unwrap().push(metric_telea);
+        bertalmio2001_metrics.lock().unwrap().push(metric_bertalmio);
+    });
 
-        let (diff_pixels_telea, diff_color_telea, diff_mean_square_telea, psnr_telea) =
-            run_metrics(&img_original, &result_telea);
+    let telea2004_metrics = telea2004_metrics.lock().unwrap();
+    let bertalmio2001_metrics = bertalmio2001_metrics.lock().unwrap();
 
-        let (diff_pixels_b2001, diff_color_b2001, diff_mean_square_b2001, psnr_b2001) =
-            run_metrics(&img_original, &result_b2001);
+    let headers = vec![
+        "Timing",
+        "Difference_of_pixels",
+        "Difference_of_colors",
+        "Mean_square_error",
+        "Peak_signal_to_noise_ratio",
+    ];
 
-        timings_t2004.push(elapsed_t2004);
-        pixel_diffs_t2004.push(diff_pixels_telea);
-        color_diffs_t2004.push(diff_color_telea);
-        mses_t2004.push(diff_mean_square_telea);
-        psnrs_t2004.push(psnr_telea);
-
-        timings_b2001.push(elapsed_b2001);
-        pixel_diffs_b2001.push(diff_pixels_b2001);
-        color_diffs_b2001.push(diff_color_b2001);
-        mses_b2001.push(diff_mean_square_b2001);
-        psnrs_b2001.push(psnr_b2001);
-    }
-
-    save_to_csv(
-        "metrics_t2004.csv",
-        vec!["timings", "pixel_diffs", "color_diffs", "mses", "psnrs"],
-        vec![
-            timings_t2004,
-            pixel_diffs_t2004,
-            color_diffs_t2004,
-            mses_t2004,
-            psnrs_t2004,
-        ],
-    );
-
-    save_to_csv(
-        "metrics_b2001.csv",
-        vec!["timings", "pixel_diffs", "color_diffs", "mses", "psnrs"],
-        vec![
-            timings_b2001,
-            pixel_diffs_b2001,
-            color_diffs_b2001,
-            mses_b2001,
-            psnrs_b2001,
-        ],
-    );
+    let name_telea = "dataset/metrics/telea2004.csv";
+    let name_bertalmio = "dataset/metrics/bertalmio2001.csv";
+    save_csv(name_telea, &headers, &telea2004_metrics);
+    save_csv(name_bertalmio, &headers, &bertalmio2001_metrics);
 }
 
-fn run_metrics(
-    original: &image::DynamicImage,
-    result: &image::DynamicImage,
-) -> (f64, f64, f64, f64) {
+fn run_metrics(original: &image::DynamicImage, result: &image::DynamicImage, metric: &mut Metric) {
     let diff_pixels = f64::from(diff_pixels(original, result));
     let diff_color = diff_color(original, result);
     let diff_mean_square = diff_mean_square(original, result);
     let psnr = psnr(original, result);
-    (diff_pixels, diff_color, diff_mean_square, psnr)
+
+    metric.pixel_diff = diff_pixels;
+    metric.color_diff = diff_color;
+    metric.mse = diff_mean_square;
+    metric.psnr = psnr;
 }
 
-fn save_to_csv(filename: &str, headers: Vec<&str>, data: Vec<Vec<f64>>) {
-    // use csv crate
+fn save_csv(filename: &str, headers: &[&str], metrics: &MethodMetrics) {
     let mut wtr = csv::Writer::from_path(filename).unwrap();
-    // write header
-    wtr.write_record(&headers).unwrap();
-    // write data
-    for i in 0..data[0].len() {
-        let mut row = Vec::with_capacity(data.len());
-        for j in 0..data.len() {
-            row.push(data[j][i].to_string());
-        }
-        wtr.write_record(row).unwrap();
+
+    wtr.write_record(headers).unwrap();
+    let size = metrics.size;
+
+    for row in 0..size {
+        let mut record = csv::StringRecord::new();
+        record.push_field(metrics.timings[row].to_string().as_str());
+        record.push_field(metrics.pixel_diffs[row].to_string().as_str());
+        record.push_field(metrics.color_diffs[row].to_string().as_str());
+        record.push_field(metrics.mses[row].to_string().as_str());
+        record.push_field(metrics.psnrs[row].to_string().as_str());
+        wtr.write_record(&record).unwrap();
     }
     wtr.flush().unwrap();
-
-    // Plot data using plotters
-    let root = BitMapBackend::new(filename, (640, 480)).into_drawing_area();
-    root.fill(&WHITE).unwrap();
-
-    let filename_img = filename.replace(".csv", ".png");
-    let mut chart = ChartBuilder::on(&root)
-        .caption(filename_img, ("sans-serif", 50).into_font())
-        .margin(5)
-        .x_label_area_size(30)
-        .y_label_area_size(30)
-        .build_cartesian_2d(0f64..data[0].len() as f64, 0f64..data[0].len() as f64)
-        .unwrap();
-
-    chart
-        .configure_mesh()
-        .disable_x_mesh()
-        .disable_y_mesh()
-        .x_desc("x")
-        .y_desc("y")
-        .draw()
-        .unwrap();
-
-    chart
-        .draw_series(LineSeries::new(
-            data[0].iter().enumerate().map(|(x, y)| (x as f64, *y)),
-            &RED,
-        ))
-        .unwrap();
-
-    chart
-        .draw_series(LineSeries::new(
-            data[1].iter().enumerate().map(|(x, y)| (x as f64, *y)),
-            &BLUE,
-        ))
-        .unwrap();
-
-    chart
-        .draw_series(LineSeries::new(
-            data[2].iter().enumerate().map(|(x, y)| (x as f64, *y)),
-            &GREEN,
-        ))
-        .unwrap();
-
-    chart
-        .draw_series(LineSeries::new(
-            data[3].iter().enumerate().map(|(x, y)| (x as f64, *y)),
-            &BLACK,
-        ))
-        .unwrap();
-
-    chart
-        .draw_series(LineSeries::new(
-            data[4].iter().enumerate().map(|(x, y)| (x as f64, *y)),
-            &YELLOW,
-        ))
-        .unwrap();
-
-    root.present().unwrap();
 }
 
 fn print_folder_structure() {
@@ -225,7 +192,7 @@ fn print_folder_structure() {
     println!("│   └── image3.png");
 }
 
-fn main() {
+fn verify_base_paths() {
     if !Path::new("dataset").exists() {
         println!("Please create a directory called 'dataset' in the root of the project.");
         print_folder_structure();
@@ -235,15 +202,49 @@ fn main() {
         print_folder_structure();
         return;
     }
-
-    // get arg for max samples
+}
+fn main() {
+    verify_base_paths();
 
     let args: Vec<String> = std::env::args().collect();
-    let max_samples = if args.len() > 1 {
-        args[1].parse::<usize>().unwrap()
-    } else {
-        0
-    };
 
-    inpaint(max_samples);
+    let options: std::collections::HashMap<String, String> = args
+        .iter()
+        .skip(1)
+        .map(|arg| {
+            let mut split = arg.split('=');
+            let key = split.next().unwrap_or("").to_string();
+            let value = split.next().unwrap_or("").to_string();
+            (key, value)
+        })
+        .collect();
+
+    let possible_options = vec!["max_samples", "radius", "max_threads"];
+    // verify if user has passed any invalid options. If so, print error and exit.
+    options.keys().for_each(|key| {
+        if !possible_options.contains(&key.as_str()) {
+            println!("Invalid option: {}", key);
+            println!("Possible options: {:?}", possible_options);
+            std::process::exit(1);
+        }
+    });
+
+    let max_samples = options
+        .get("max_samples")
+        .map(|s| s.parse::<usize>().unwrap())
+        .unwrap_or(usize::MAX);
+
+    let radius = options
+        .get("radius")
+        .map(|s| s.parse::<u8>().unwrap())
+        .unwrap_or(5);
+
+    let max_threads = options
+        .get("max_threads")
+        .map(|s| s.parse::<usize>().unwrap())
+        .unwrap_or(num_cpus::get());
+
+    env::set_var("RAYON_NUM_THREADS", max_threads.to_string());
+
+    inpaint(radius, max_samples);
 }
