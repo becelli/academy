@@ -57,8 +57,8 @@ pub fn glyphs_corrupt(img: &DynamicImage) -> (DynamicImage, DynamicImage) {
                 let y = y + bb.min.y as u32;
                 if x < width && y < height && v > 0.1 {
                     let color = Rgba([255, 255, 255, 255]);
-                    imgbuf.put_pixel(x as u32, y as u32, color);
-                    mask.put_pixel(x as u32, y as u32, color);
+                    imgbuf.put_pixel(x, y, color);
+                    mask.put_pixel(x, y, color);
                 }
             });
         }

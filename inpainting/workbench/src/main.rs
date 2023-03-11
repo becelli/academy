@@ -196,11 +196,9 @@ fn verify_base_paths() {
     if !Path::new("dataset").exists() {
         println!("Please create a directory called 'dataset' in the root of the project.");
         print_folder_structure();
-        return;
     } else if !Path::new("dataset/original").exists() {
         println!("Please create a directory called 'original' in the 'dataset' directory.");
         print_folder_structure();
-        return;
     }
 }
 fn main() {
