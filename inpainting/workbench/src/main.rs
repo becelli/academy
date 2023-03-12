@@ -1,87 +1,17 @@
 mod maskenizer;
+mod metrics;
+mod metrics_plot;
 use fmm_inpaint::{bertalmio2001, telea2004};
 use image_metrics::{diff_color, diff_mean_square, diff_pixels, psnr};
-// use plotters::prelude::*;
+use metrics::{MethodMetrics, Metric, Names};
 use rayon::iter::ParallelIterator;
 use rayon::prelude::*;
 use std::env;
-use std::sync::{Arc, Mutex};
-
 use std::path::Path;
+use std::sync::{Arc, Mutex};
 
 #[global_allocator]
 static GLOBAL: jemallocator::Jemalloc = jemallocator::Jemalloc;
-
-struct MethodMetrics {
-    pub size: usize,
-    pub timings: Vec<f64>,
-    pub pixel_diffs: Vec<f64>,
-    pub color_diffs: Vec<f64>,
-    pub mses: Vec<f64>,
-    pub psnrs: Vec<f64>,
-}
-
-struct Metric {
-    pub timing: f64,
-    pub pixel_diff: f64,
-    pub color_diff: f64,
-    pub mse: f64,
-    pub psnr: f64,
-}
-
-struct Names {
-    original: String,
-    corrupted: String,
-    mask: String,
-    result_telea: String,
-    result_bertalmio: String,
-}
-
-impl Names {
-    fn new_from(filename: &str) -> Self {
-        let (name, ext) = filename.split_once('.').unwrap();
-        Self {
-            original: format!("dataset/original/{name}.{ext}"),
-            corrupted: format!("dataset/corrupted/{name}_corrupted.{ext}"),
-            mask: format!("dataset/mask/{name}_mask.{ext}"),
-            result_telea: format!("dataset/restored/{name}_telea.{ext}"),
-            result_bertalmio: format!("dataset/restored/{name}_bertalmio.{ext}"),
-        }
-    }
-}
-
-impl MethodMetrics {
-    fn new(size: usize) -> Self {
-        Self {
-            size,
-            timings: Vec::with_capacity(size),
-            pixel_diffs: Vec::with_capacity(size),
-            color_diffs: Vec::with_capacity(size),
-            mses: Vec::with_capacity(size),
-            psnrs: Vec::with_capacity(size),
-        }
-    }
-
-    fn push(&mut self, metric: Metric) {
-        self.timings.push(metric.timing);
-        self.pixel_diffs.push(metric.pixel_diff);
-        self.color_diffs.push(metric.color_diff);
-        self.mses.push(metric.mse);
-        self.psnrs.push(metric.psnr);
-    }
-}
-
-impl Metric {
-    fn new() -> Self {
-        Self {
-            timing: 0.0,
-            pixel_diff: 0.0,
-            color_diff: 0.0,
-            mse: 0.0,
-            psnr: 0.0,
-        }
-    }
-}
 
 fn create_inpainting_paths() {
     ["corrupted", "mask", "restored", "metrics"]
@@ -151,6 +81,9 @@ fn inpaint(radius: u8, max_samples: usize) {
     let name_bertalmio = "dataset/metrics/bertalmio2001.csv";
     save_csv(name_telea, &headers, &telea2004_metrics);
     save_csv(name_bertalmio, &headers, &bertalmio2001_metrics);
+
+    metrics_plot::plot_metrics(&telea2004_metrics, name_telea);
+    metrics_plot::plot_metrics(&bertalmio2001_metrics, name_bertalmio);
 }
 
 fn run_metrics(original: &image::DynamicImage, result: &image::DynamicImage, metric: &mut Metric) {
@@ -218,7 +151,7 @@ fn main() {
         .collect();
 
     let possible_options = vec!["max_samples", "radius", "max_threads"];
-    // verify if user has passed any invalid options. If so, print error and exit.
+    // verify if user has passed some invalid options. If so, print error and exit.
     options.keys().for_each(|key| {
         if !possible_options.contains(&key.as_str()) {
             println!("Invalid option: {}", key);
@@ -229,17 +162,32 @@ fn main() {
 
     let max_samples = options
         .get("max_samples")
-        .map(|s| s.parse::<usize>().unwrap())
+        .map(|s| {
+            s.parse::<usize>().unwrap_or_else(|_| {
+                println!("Invalid value for max_samples. It must be a number.");
+                std::process::exit(1);
+            })
+        })
         .unwrap_or(usize::MAX);
 
     let radius = options
         .get("radius")
-        .map(|s| s.parse::<u8>().unwrap())
+        .map(|s| {
+            s.parse::<u8>().unwrap_or_else(|_| {
+                println!("Invalid value for radius. It must be a natural number.");
+                std::process::exit(1);
+            })
+        })
         .unwrap_or(5);
 
     let max_threads = options
         .get("max_threads")
-        .map(|s| s.parse::<usize>().unwrap())
+        .map(|s| {
+            s.parse::<usize>().unwrap_or_else(|_| {
+                println!("Invalid value for max_threads. It must be a natural number.");
+                std::process::exit(1);
+            })
+        })
         .unwrap_or(num_cpus::get());
 
     env::set_var("RAYON_NUM_THREADS", max_threads.to_string());

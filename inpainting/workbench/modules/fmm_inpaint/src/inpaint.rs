@@ -378,9 +378,9 @@ fn calculate_telea_color(
 /// # Returns
 ///
 /// The value of the specified color channel of the pixel as a `f64`.
-#[inline]
+#[inline(always)]
 fn get_channel_value(img: &DynamicImage, i: u32, j: u32, ch: usize) -> f64 {
-    img.get_pixel(i, j).channels()[ch] as f64
+    f64::from(img.get_pixel(i, j).channels()[ch])
 }
 
 /// Computes the color for a pixel using the Bertalmio inpainting algorithm.
